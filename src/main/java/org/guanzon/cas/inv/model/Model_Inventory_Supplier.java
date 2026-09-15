@@ -2,6 +2,7 @@ package org.guanzon.cas.inv.model;
 
 import java.sql.SQLException;
 import org.guanzon.appdriver.agent.services.Model;
+import org.guanzon.appdriver.agent.services.ReferenceCache;
 import org.guanzon.appdriver.base.GuanzonException;
 import org.guanzon.appdriver.base.MiscUtil;
 import org.guanzon.appdriver.constant.EditMode;
@@ -16,6 +17,9 @@ import org.json.simple.JSONObject;
  * @author maynevval 07-26-2025
  */
 public class Model_Inventory_Supplier extends Model {
+    //poInventory/poClientMaster are intentionally NOT constructed in initialize() - see their
+    //accessors below, which build them lazily on first access so opening this record never
+    //touches those tables.
     Model_Inventory poInventory;
     Model_Client_Master poClientMaster;
 
@@ -38,8 +42,6 @@ public class Model_Inventory_Supplier extends Model {
 
             ID = poEntity.getMetaData().getColumnLabel(1);
             ID2 = poEntity.getMetaData().getColumnLabel(2);
-            poInventory = new InvModels(poGRider).Inventory();
-            poClientMaster = new ClientModels(poGRider).ClientMaster();
 
             pnEditMode = EditMode.UNKNOWN;
         } catch (SQLException e) {
@@ -94,14 +96,23 @@ public class Model_Inventory_Supplier extends Model {
     }
 
     public Model_Client_Master Supplier() throws SQLException, GuanzonException {
+        if (poClientMaster == null) {
+            poClientMaster = new ClientModels(poGRider).ClientMaster();
+        }
+
         if (!"".equals((String) getValue("sSupplier"))) {
             if (poClientMaster.getEditMode() == EditMode.READY
                     && poClientMaster.getClientId().equals((String) getValue("sSupplier"))) {
                 return poClientMaster;
             } else {
+                if (ReferenceCache.tryLoad("Client_Master", (String) getValue("sSupplier"), poClientMaster)) {
+                    return poClientMaster;
+                }
+
                 poJSON = poClientMaster.openRecord((String) getValue("sSupplier"));
 
                 if ("success".equals((String) poJSON.get("result"))) {
+                    ReferenceCache.store("Client_Master", (String) getValue("sSupplier"), poClientMaster);
                     return poClientMaster;
                 } else {
                     poClientMaster.initialize();
@@ -115,6 +126,10 @@ public class Model_Inventory_Supplier extends Model {
     }
 
     public Model_Inventory Inventory() throws SQLException, GuanzonException {
+        if (poInventory == null) {
+            poInventory = new InvModels(poGRider).Inventory();
+        }
+
         if (!"".equals((String) getValue("sSupplier"))) {
             if (poInventory.getEditMode() == EditMode.READY
                     && poInventory.getStockId().equals((String) getValue("sStockIDx"))) {

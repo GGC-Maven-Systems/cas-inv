@@ -3,6 +3,7 @@ package org.guanzon.cas.inv.model;
 import java.sql.SQLException;
 import java.util.Date;
 import org.guanzon.appdriver.agent.services.Model;
+import org.guanzon.appdriver.agent.services.ReferenceCache;
 import org.guanzon.appdriver.base.GuanzonException;
 import org.guanzon.appdriver.base.MiscUtil;
 import org.guanzon.appdriver.constant.EditMode;
@@ -21,6 +22,9 @@ import org.json.simple.JSONObject;
 public class Model_Inv_Master extends Model {
 
     //reference objects
+    //All reference fields below are intentionally NOT constructed in initialize() - see their
+    //accessors, which build them lazily on first access so opening this record never touches
+    //those tables.
     Model_Branch poBranch;
     Model_Warehouse poWarehouse;
     Model_Inventory poInventory;
@@ -71,17 +75,6 @@ public class Model_Inv_Master extends Model {
             ID = "sStockIDx";
             ID2 = "sIndstCdx";
             ID3 = "sBranchCd";
-
-            //initialize reference objects
-            ParamModels model = new ParamModels(poGRider);
-            poBranch = model.Branch();
-            poWarehouse = model.Warehouse();
-            poLocation = model.InventoryLocation();
-            poBinLevel = model.Bin();
-            this.poIndustry = (new ParamModels(this.poGRider)).Industry();
-
-            poInventory = new InvModels(poGRider).Inventory();
-            //end - initialize reference objects
 
             pnEditMode = EditMode.UNKNOWN;
         } catch (SQLException e) {
@@ -337,14 +330,23 @@ public class Model_Inv_Master extends Model {
 
     //reference object models
     public Model_Branch Branch() throws SQLException, GuanzonException {
+        if (poBranch == null) {
+            poBranch = new ParamModels(poGRider).Branch();
+        }
+
         if (!"".equals((String) getValue("sBranchCd"))) {
             if (poBranch.getEditMode() == EditMode.READY
                     && poBranch.getBranchCode().equals((String) getValue("sBranchCd"))) {
                 return poBranch;
             } else {
+                if (ReferenceCache.tryLoad("Branch", (String) getValue("sBranchCd"), poBranch)) {
+                    return poBranch;
+                }
+
                 poJSON = poBranch.openRecord((String) getValue("sBranchCd"));
 
                 if ("success".equals((String) poJSON.get("result"))) {
+                    ReferenceCache.store("Branch", (String) getValue("sBranchCd"), poBranch);
                     return poBranch;
                 } else {
                     poBranch.initialize();
@@ -358,14 +360,23 @@ public class Model_Inv_Master extends Model {
     }
 
     public Model_Warehouse Warehouse() throws SQLException, GuanzonException {
+        if (poWarehouse == null) {
+            poWarehouse = new ParamModels(poGRider).Warehouse();
+        }
+
         if (!"".equals((String) getValue("sWHouseID"))) {
             if (poWarehouse.getEditMode() == EditMode.READY
                     && poWarehouse.getWarehouseId().equals((String) getValue("sWHouseID"))) {
                 return poWarehouse;
             } else {
+                if (ReferenceCache.tryLoad("Warehouse", (String) getValue("sWHouseID"), poWarehouse)) {
+                    return poWarehouse;
+                }
+
                 poJSON = poWarehouse.openRecord((String) getValue("sWHouseID"));
 
                 if ("success".equals((String) poJSON.get("result"))) {
+                    ReferenceCache.store("Warehouse", (String) getValue("sWHouseID"), poWarehouse);
                     return poWarehouse;
                 } else {
                     poWarehouse.initialize();
@@ -379,14 +390,23 @@ public class Model_Inv_Master extends Model {
     }
 
     public Model_Inv_Location Location() throws SQLException, GuanzonException {
+        if (poLocation == null) {
+            poLocation = new ParamModels(poGRider).InventoryLocation();
+        }
+
         if (!"".equals((String) getValue("sLocatnID"))) {
             if (poLocation.getEditMode() == EditMode.READY
                     && poLocation.getLocationId().equals((String) getValue("sLocatnID"))) {
                 return poLocation;
             } else {
+                if (ReferenceCache.tryLoad("Inv_Location", (String) getValue("sLocatnID"), poLocation)) {
+                    return poLocation;
+                }
+
                 poJSON = poLocation.openRecord((String) getValue("sLocatnID"));
 
                 if ("success".equals((String) poJSON.get("result"))) {
+                    ReferenceCache.store("Inv_Location", (String) getValue("sLocatnID"), poLocation);
                     return poLocation;
                 } else {
                     poLocation.initialize();
@@ -400,14 +420,23 @@ public class Model_Inv_Master extends Model {
     }
 
     public Model_Bin BinLevel() throws SQLException, GuanzonException {
+        if (poBinLevel == null) {
+            poBinLevel = new ParamModels(poGRider).Bin();
+        }
+
         if (!"".equals((String) getValue("sBinNumbr"))) {
             if (poBinLevel.getEditMode() == EditMode.READY
                     && poBinLevel.getBinId().equals((String) getValue("sBinNumbr"))) {
                 return poBinLevel;
             } else {
+                if (ReferenceCache.tryLoad("Bin", (String) getValue("sBinNumbr"), poBinLevel)) {
+                    return poBinLevel;
+                }
+
                 poJSON = poBinLevel.openRecord((String) getValue("sBinNumbr"));
 
                 if ("success".equals((String) poJSON.get("result"))) {
+                    ReferenceCache.store("Bin", (String) getValue("sBinNumbr"), poBinLevel);
                     return poBinLevel;
                 } else {
                     poBinLevel.initialize();
@@ -421,6 +450,10 @@ public class Model_Inv_Master extends Model {
     }
 
     public Model_Inventory Inventory() throws SQLException, GuanzonException {
+        if (poInventory == null) {
+            poInventory = new InvModels(poGRider).Inventory();
+        }
+
         if (!"".equals((String) getValue("sStockIDx"))) {
             if (poInventory.getEditMode() == EditMode.READY
                     && poInventory.getStockId().equals((String) getValue("sStockIDx"))) {
@@ -442,13 +475,23 @@ public class Model_Inv_Master extends Model {
     }
 
     public Model_Industry Industry() throws SQLException, GuanzonException {
+        if (poIndustry == null) {
+            poIndustry = new ParamModels(poGRider).Industry();
+        }
+
         if (!"".equals(getValue("sIndstCdx"))) {
             if (this.poIndustry.getEditMode() == 1 && this.poIndustry
                     .getIndustryId().equals(getValue("sIndstCdx"))) {
                 return this.poIndustry;
             }
+
+            if (ReferenceCache.tryLoad("Industry", (String) getValue("sIndstCdx"), poIndustry)) {
+                return poIndustry;
+            }
+
             this.poJSON = this.poIndustry.openRecord((String) getValue("sIndstCdx"));
             if ("success".equals(this.poJSON.get("result"))) {
+                ReferenceCache.store("Industry", (String) getValue("sIndstCdx"), poIndustry);
                 return this.poIndustry;
             }
             this.poIndustry.initialize();
