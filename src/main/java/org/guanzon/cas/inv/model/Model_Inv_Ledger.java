@@ -3,6 +3,7 @@ package org.guanzon.cas.inv.model;
 import java.sql.SQLException;
 import java.util.Date;
 import org.guanzon.appdriver.agent.services.Model;
+import org.guanzon.appdriver.agent.services.ReferenceCache;
 import org.guanzon.appdriver.base.GuanzonException;
 import org.guanzon.appdriver.base.MiscUtil;
 import org.guanzon.appdriver.constant.EditMode;
@@ -17,6 +18,9 @@ import org.json.simple.JSONObject;
 public class Model_Inv_Ledger extends Model {
 
     //reference objects
+    //All reference fields below are intentionally NOT constructed in initialize() - see their
+    //accessors, which build them lazily on first access so opening this record never touches
+    //those tables.
     Model_Branch poBranch;
     Model_Warehouse poWarehouse;
     Model_Inventory poInventory;
@@ -45,16 +49,6 @@ public class Model_Inv_Ledger extends Model {
             ID3 = "sSourceCd";
             ID4 = "sSourceNo";
             ID5 = "sWHouseID";
-
-            //initialize reference objects
-            ParamModels model = new ParamModels(poGRider);
-            poBranch = model.Branch();
-            poWarehouse = model.Warehouse();
-            poTransactionSource = model.TransactionSource();
-            poInventory = new InvModels(poGRider).Inventory();
-
-            this.poIndustry = (new ParamModels(this.poGRider)).Industry();
-            //end - initialize reference objects
 
             pnEditMode = EditMode.UNKNOWN;
         } catch (SQLException e) {
@@ -247,14 +241,23 @@ public class Model_Inv_Ledger extends Model {
 
     //reference object models
     public Model_Branch Branch() throws SQLException, GuanzonException {
+        if (poBranch == null) {
+            poBranch = new ParamModels(poGRider).Branch();
+        }
+
         if (!"".equals((String) getValue("sBranchCd"))) {
             if (poBranch.getEditMode() == EditMode.READY
                     && poBranch.getBranchCode().equals((String) getValue("sBranchCd"))) {
                 return poBranch;
             } else {
+                if (ReferenceCache.tryLoad("Branch", (String) getValue("sBranchCd"), poBranch)) {
+                    return poBranch;
+                }
+
                 poJSON = poBranch.openRecord((String) getValue("sBranchCd"));
 
                 if ("success".equals((String) poJSON.get("result"))) {
+                    ReferenceCache.store("Branch", (String) getValue("sBranchCd"), poBranch);
                     return poBranch;
                 } else {
                     poBranch.initialize();
@@ -268,14 +271,23 @@ public class Model_Inv_Ledger extends Model {
     }
 
     public Model_Warehouse Warehouse() throws SQLException, GuanzonException {
+        if (poWarehouse == null) {
+            poWarehouse = new ParamModels(poGRider).Warehouse();
+        }
+
         if (!"".equals((String) getValue("sWHouseID"))) {
             if (poWarehouse.getEditMode() == EditMode.READY
                     && poWarehouse.getWarehouseId().equals((String) getValue("sWHouseID"))) {
                 return poWarehouse;
             } else {
+                if (ReferenceCache.tryLoad("Warehouse", (String) getValue("sWHouseID"), poWarehouse)) {
+                    return poWarehouse;
+                }
+
                 poJSON = poWarehouse.openRecord((String) getValue("sWHouseID"));
 
                 if ("success".equals((String) poJSON.get("result"))) {
+                    ReferenceCache.store("Warehouse", (String) getValue("sWHouseID"), poWarehouse);
                     return poWarehouse;
                 } else {
                     poWarehouse.initialize();
@@ -289,6 +301,10 @@ public class Model_Inv_Ledger extends Model {
     }
 
     public Model_Inventory Inventory() throws SQLException, GuanzonException {
+        if (poInventory == null) {
+            poInventory = new InvModels(poGRider).Inventory();
+        }
+
         if (!"".equals((String) getValue("sStockIDx"))) {
             if (poInventory.getEditMode() == EditMode.READY
                     && poInventory.getStockId().equals((String) getValue("sStockIDx"))) {
@@ -310,13 +326,23 @@ public class Model_Inv_Ledger extends Model {
     }
 
     public Model_Industry Industry() throws SQLException, GuanzonException {
+        if (poIndustry == null) {
+            poIndustry = new ParamModels(poGRider).Industry();
+        }
+
         if (!"".equals(getValue("sIndstCdx"))) {
             if (this.poIndustry.getEditMode() == 1 && this.poIndustry
                     .getIndustryId().equals(getValue("sIndstCdx"))) {
                 return this.poIndustry;
             }
+
+            if (ReferenceCache.tryLoad("Industry", (String) getValue("sIndstCdx"), poIndustry)) {
+                return poIndustry;
+            }
+
             this.poJSON = this.poIndustry.openRecord((String) getValue("sIndstCdx"));
             if ("success".equals(this.poJSON.get("result"))) {
+                ReferenceCache.store("Industry", (String) getValue("sIndstCdx"), poIndustry);
                 return this.poIndustry;
             }
             this.poIndustry.initialize();
@@ -327,13 +353,23 @@ public class Model_Inv_Ledger extends Model {
     }
 
     public Model_xxxTransactionSource TransactionSource() throws SQLException, GuanzonException {
+        if (poTransactionSource == null) {
+            poTransactionSource = new ParamModels(poGRider).TransactionSource();
+        }
+
         if (!"".equals(getValue("sSourceCd"))) {
             if (this.poTransactionSource.getEditMode() == 1 && this.poTransactionSource
                     .getSourceCode().equals(getValue("sSourceCd"))) {
                 return this.poTransactionSource;
             }
+
+            if (ReferenceCache.tryLoad("TransactionSource", (String) getValue("sSourceCd"), poTransactionSource)) {
+                return poTransactionSource;
+            }
+
             this.poJSON = this.poTransactionSource.openRecord((String) getValue("sSourceCd"));
             if ("success".equals(this.poJSON.get("result"))) {
+                ReferenceCache.store("TransactionSource", (String) getValue("sSourceCd"), poTransactionSource);
                 return this.poTransactionSource;
             }
             this.poTransactionSource.initialize();

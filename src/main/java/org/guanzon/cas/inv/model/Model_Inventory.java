@@ -3,6 +3,7 @@ package org.guanzon.cas.inv.model;
 import java.sql.SQLException;
 import java.util.Date;
 import org.guanzon.appdriver.agent.services.Model;
+import org.guanzon.appdriver.agent.services.ReferenceCache;
 import org.guanzon.appdriver.base.GuanzonException;
 import org.guanzon.appdriver.base.MiscUtil;
 import org.guanzon.appdriver.constant.EditMode;
@@ -25,6 +26,9 @@ import org.json.simple.JSONObject;
 
 public class Model_Inventory extends Model {
 
+    //All reference fields below are intentionally NOT constructed in initialize() - see their
+    //accessors, which build them lazily on first access so opening this record never touches
+    //those tables.
     private Model_Industry poIndustry;
     private Model_Category poCategory;
     private Model_Category_Level2 poCategoryLevel2;
@@ -85,21 +89,6 @@ public class Model_Inventory extends Model {
             //end - assign default values
 
             ID = poEntity.getMetaData().getColumnLabel(1);
-
-            //initialize other connections
-            ParamModels model = new ParamModels(poGRider);
-            poIndustry = model.Industry();
-            poCategory = model.Category();
-            poCategoryLevel2 = model.Category2();
-            poCategoryLevel3 = model.Category3();
-            poCategoryLevel4 = model.Category4();
-            poBrand = model.Brand();
-            poModel = model.Model();
-            poColor = model.Color();
-            poMeasure = model.Measurement();
-            poInventoryType = model.InventoryType();
-            poVariant = model.ModelVariant();
-            poSuperseded = new InvModels(poGRider).InventorySuperseded();
 
             pnEditMode = EditMode.UNKNOWN;
         } catch (SQLException e) {
@@ -394,14 +383,23 @@ public class Model_Inventory extends Model {
     }
 
     public Model_Industry Industry() throws SQLException, GuanzonException {
+        if (poIndustry == null) {
+            poIndustry = new ParamModels(poGRider).Industry();
+        }
+
         if (!"".equals((String) getValue("sIndstCdx"))) {
             if (poIndustry.getEditMode() == EditMode.READY
                     && poIndustry.getIndustryId().equals((String) getValue("sIndstCdx"))) {
                 return poIndustry;
             } else {
+                if (ReferenceCache.tryLoad("Industry", (String) getValue("sIndstCdx"), poIndustry)) {
+                    return poIndustry;
+                }
+
                 poJSON = poIndustry.openRecord((String) getValue("sIndstCdx"));
 
                 if ("success".equals((String) poJSON.get("result"))) {
+                    ReferenceCache.store("Industry", (String) getValue("sIndstCdx"), poIndustry);
                     return poIndustry;
                 } else {
                     poIndustry.initialize();
@@ -415,14 +413,23 @@ public class Model_Inventory extends Model {
     }
 
     public Model_Category Category() throws SQLException, GuanzonException {
+        if (poCategory == null) {
+            poCategory = new ParamModels(poGRider).Category();
+        }
+
         if (!"".equals((String) getValue("sCategCd1"))) {
             if (poCategory.getEditMode() == EditMode.READY
                     && poCategory.getCategoryId().equals((String) getValue("sCategCd1"))) {
                 return poCategory;
             } else {
+                if (ReferenceCache.tryLoad("Category", (String) getValue("sCategCd1"), poCategory)) {
+                    return poCategory;
+                }
+
                 poJSON = poCategory.openRecord((String) getValue("sCategCd1"));
 
                 if ("success".equals((String) poJSON.get("result"))) {
+                    ReferenceCache.store("Category", (String) getValue("sCategCd1"), poCategory);
                     return poCategory;
                 } else {
                     poCategory.initialize();
@@ -436,14 +443,23 @@ public class Model_Inventory extends Model {
     }
 
     public Model_Category_Level2 CategoryLevel2() throws SQLException, GuanzonException {
+        if (poCategoryLevel2 == null) {
+            poCategoryLevel2 = new ParamModels(poGRider).Category2();
+        }
+
         if (!"".equals((String) getValue("sCategCd2"))) {
             if (poCategoryLevel2.getEditMode() == EditMode.READY
                     && poCategoryLevel2.getCategoryId().equals((String) getValue("sCategCd2"))) {
                 return poCategoryLevel2;
             } else {
+                if (ReferenceCache.tryLoad("Category_Level2", (String) getValue("sCategCd2"), poCategoryLevel2)) {
+                    return poCategoryLevel2;
+                }
+
                 poJSON = poCategoryLevel2.openRecord((String) getValue("sCategCd2"));
 
                 if ("success".equals((String) poJSON.get("result"))) {
+                    ReferenceCache.store("Category_Level2", (String) getValue("sCategCd2"), poCategoryLevel2);
                     return poCategoryLevel2;
                 } else {
                     poCategoryLevel2.initialize();
@@ -457,14 +473,23 @@ public class Model_Inventory extends Model {
     }
 
     public Model_Category_Level3 CategoryLevel3() throws SQLException, GuanzonException {
+        if (poCategoryLevel3 == null) {
+            poCategoryLevel3 = new ParamModels(poGRider).Category3();
+        }
+
         if (!"".equals((String) getValue("sCategCd3"))) {
             if (poCategoryLevel3.getEditMode() == EditMode.READY
                     && poCategoryLevel3.getCategoryId().equals((String) getValue("sCategCd3"))) {
                 return poCategoryLevel3;
             } else {
+                if (ReferenceCache.tryLoad("Category_Level3", (String) getValue("sCategCd3"), poCategoryLevel3)) {
+                    return poCategoryLevel3;
+                }
+
                 poJSON = poCategoryLevel3.openRecord((String) getValue("sCategCd3"));
 
                 if ("success".equals((String) poJSON.get("result"))) {
+                    ReferenceCache.store("Category_Level3", (String) getValue("sCategCd3"), poCategoryLevel3);
                     return poCategoryLevel3;
                 } else {
                     poCategoryLevel3.initialize();
@@ -478,14 +503,23 @@ public class Model_Inventory extends Model {
     }
 
     public Model_Category_Level4 CategoryLevel4() throws SQLException, GuanzonException {
+        if (poCategoryLevel4 == null) {
+            poCategoryLevel4 = new ParamModels(poGRider).Category4();
+        }
+
         if (!"".equals((String) getValue("sCategCd4"))) {
             if (poCategoryLevel4.getEditMode() == EditMode.READY
                     && poCategoryLevel4.getCategoryId().equals((String) getValue("sCategCd4"))) {
                 return poCategoryLevel4;
             } else {
+                if (ReferenceCache.tryLoad("Category_Level4", (String) getValue("sCategCd4"), poCategoryLevel4)) {
+                    return poCategoryLevel4;
+                }
+
                 poJSON = poCategoryLevel4.openRecord((String) getValue("sCategCd4"));
 
                 if ("success".equals((String) poJSON.get("result"))) {
+                    ReferenceCache.store("Category_Level4", (String) getValue("sCategCd4"), poCategoryLevel4);
                     return poCategoryLevel4;
                 } else {
                     poCategoryLevel4.initialize();
@@ -499,14 +533,23 @@ public class Model_Inventory extends Model {
     }
 
     public Model_Brand Brand() throws SQLException, GuanzonException {
+        if (poBrand == null) {
+            poBrand = new ParamModels(poGRider).Brand();
+        }
+
         if (!"".equals((String) getValue("sBrandIDx"))) {
             if (poBrand.getEditMode() == EditMode.READY
                     && poBrand.getBrandId().equals((String) getValue("sBrandIDx"))) {
                 return poBrand;
             } else {
+                if (ReferenceCache.tryLoad("Brand", (String) getValue("sBrandIDx"), poBrand)) {
+                    return poBrand;
+                }
+
                 poJSON = poBrand.openRecord((String) getValue("sBrandIDx"));
 
                 if ("success".equals((String) poJSON.get("result"))) {
+                    ReferenceCache.store("Brand", (String) getValue("sBrandIDx"), poBrand);
                     return poBrand;
                 } else {
                     poBrand.initialize();
@@ -520,14 +563,23 @@ public class Model_Inventory extends Model {
     }
 
     public Model_Model Model() throws SQLException, GuanzonException {
+        if (poModel == null) {
+            poModel = new ParamModels(poGRider).Model();
+        }
+
         if (!"".equals((String) getValue("sModelIDx"))) {
             if (poModel.getEditMode() == EditMode.READY
                     && poModel.getModelId().equals((String) getValue("sModelIDx"))) {
                 return poModel;
             } else {
+                if (ReferenceCache.tryLoad("Model", (String) getValue("sModelIDx"), poModel)) {
+                    return poModel;
+                }
+
                 poJSON = poModel.openRecord((String) getValue("sModelIDx"));
 
                 if ("success".equals((String) poJSON.get("result"))) {
+                    ReferenceCache.store("Model", (String) getValue("sModelIDx"), poModel);
                     return poModel;
                 } else {
                     poModel.initialize();
@@ -541,14 +593,23 @@ public class Model_Inventory extends Model {
     }
 
     public Model_Color Color() throws SQLException, GuanzonException {
+        if (poColor == null) {
+            poColor = new ParamModels(poGRider).Color();
+        }
+
         if (!"".equals((String) getValue("sColorIDx"))) {
             if (poColor.getEditMode() == EditMode.READY
                     && poColor.getColorId().equals((String) getValue("sColorIDx"))) {
                 return poColor;
             } else {
+                if (ReferenceCache.tryLoad("Color", (String) getValue("sColorIDx"), poColor)) {
+                    return poColor;
+                }
+
                 poJSON = poColor.openRecord((String) getValue("sColorIDx"));
 
                 if ("success".equals((String) poJSON.get("result"))) {
+                    ReferenceCache.store("Color", (String) getValue("sColorIDx"), poColor);
                     return poColor;
                 } else {
                     poColor.initialize();
@@ -562,14 +623,23 @@ public class Model_Inventory extends Model {
     }
 
     public Model_Measure Measure() throws SQLException, GuanzonException {
+        if (poMeasure == null) {
+            poMeasure = new ParamModels(poGRider).Measurement();
+        }
+
         if (!"".equals((String) getValue("sMeasurID"))) {
             if (poMeasure.getEditMode() == EditMode.READY
                     && poMeasure.getMeasureId().equals((String) getValue("sMeasurID"))) {
                 return poMeasure;
             } else {
+                if (ReferenceCache.tryLoad("Measure", (String) getValue("sMeasurID"), poMeasure)) {
+                    return poMeasure;
+                }
+
                 poJSON = poMeasure.openRecord((String) getValue("sMeasurID"));
 
                 if ("success".equals((String) poJSON.get("result"))) {
+                    ReferenceCache.store("Measure", (String) getValue("sMeasurID"), poMeasure);
                     return poMeasure;
                 } else {
                     poMeasure.initialize();
@@ -583,14 +653,23 @@ public class Model_Inventory extends Model {
     }
 
     public Model_Inv_Type InventoryType() throws SQLException, GuanzonException {
+        if (poInventoryType == null) {
+            poInventoryType = new ParamModels(poGRider).InventoryType();
+        }
+
         if (!"".equals((String) getValue("sInvTypCd"))) {
             if (poInventoryType.getEditMode() == EditMode.READY
                     && poInventoryType.getInventoryTypeId().equals((String) getValue("sInvTypCd"))) {
                 return poInventoryType;
             } else {
+                if (ReferenceCache.tryLoad("Inv_Type", (String) getValue("sInvTypCd"), poInventoryType)) {
+                    return poInventoryType;
+                }
+
                 poJSON = poInventoryType.openRecord((String) getValue("sInvTypCd"));
 
                 if ("success".equals((String) poJSON.get("result"))) {
+                    ReferenceCache.store("Inv_Type", (String) getValue("sInvTypCd"), poInventoryType);
                     return poInventoryType;
                 } else {
                     poInventoryType.initialize();
@@ -604,14 +683,23 @@ public class Model_Inventory extends Model {
     }
 
     public Model_Model_Variant Variant() throws SQLException, GuanzonException {
+        if (poVariant == null) {
+            poVariant = new ParamModels(poGRider).ModelVariant();
+        }
+
         if (!"".equals((String) getValue("sVrntIDxx"))) {
             if (poVariant.getEditMode() == EditMode.READY
                     && poVariant.getVariantId().equals((String) getValue("sVrntIDxx"))) {
                 return poVariant;
             } else {
+                if (ReferenceCache.tryLoad("Model_Variant", (String) getValue("sVrntIDxx"), poVariant)) {
+                    return poVariant;
+                }
+
                 poJSON = poVariant.openRecord((String) getValue("sVrntIDxx"));
 
                 if ("success".equals((String) poJSON.get("result"))) {
+                    ReferenceCache.store("Model_Variant", (String) getValue("sVrntIDxx"), poVariant);
                     return poVariant;
                 } else {
                     poVariant.initialize();
@@ -625,6 +713,10 @@ public class Model_Inventory extends Model {
     }
 
     public Model_InventorySuperseded Superseded() throws SQLException, GuanzonException {
+        if (poSuperseded == null) {
+            poSuperseded = new InvModels(poGRider).InventorySuperseded();
+        }
+
         if (!"".equals((String) getValue("sSupersed"))) {
             if (poSuperseded.getEditMode() == EditMode.READY
                     && poSuperseded.getStockId().equals((String) getValue("sSupersed"))) {

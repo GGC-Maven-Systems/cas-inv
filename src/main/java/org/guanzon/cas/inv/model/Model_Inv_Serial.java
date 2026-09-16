@@ -3,6 +3,7 @@ package org.guanzon.cas.inv.model;
 import java.sql.SQLException;
 import java.util.Date;
 import org.guanzon.appdriver.agent.services.Model;
+import org.guanzon.appdriver.agent.services.ReferenceCache;
 import org.guanzon.appdriver.base.GuanzonException;
 import org.guanzon.appdriver.base.MiscUtil;
 import org.guanzon.appdriver.constant.EditMode;
@@ -14,6 +15,9 @@ import org.json.simple.JSONObject;
 
 public class Model_Inv_Serial extends Model {
 
+    //poInventory/poBranch are intentionally NOT constructed in initialize() - see their
+    //accessors below, which build them lazily on first access so opening this record never
+    //touches those tables.
     private Model_Inventory poInventory;
     private Model_Branch poBranch;
 
@@ -51,13 +55,6 @@ public class Model_Inv_Serial extends Model {
 
             ID = "sSerialID";
             ID2 = "sBranchCd";
-            //initialize other connections
-
-            InvModels inv = new InvModels(poGRider);
-            poInventory = inv.Inventory();
-
-            ParamModels model = new ParamModels(poGRider);
-            poBranch = model.Branch();
 
             pnEditMode = EditMode.UNKNOWN;
         } catch (SQLException e) {
@@ -224,6 +221,10 @@ public class Model_Inv_Serial extends Model {
     }
 
     public Model_Inventory Inventory() throws SQLException, GuanzonException {
+        if (poInventory == null) {
+            poInventory = new InvModels(poGRider).Inventory();
+        }
+
         if (!"".equals((String) getValue("sStockIDx"))) {
             if (poInventory.getEditMode() == EditMode.READY
                     && poInventory.getStockId().equals((String) getValue("sStockIDx"))) {
@@ -245,14 +246,23 @@ public class Model_Inv_Serial extends Model {
     }
 
     public Model_Branch Branch() throws SQLException, GuanzonException {
+        if (poBranch == null) {
+            poBranch = new ParamModels(poGRider).Branch();
+        }
+
         if (!"".equals((String) getValue("sBranchCd"))) {
             if (poBranch.getEditMode() == EditMode.READY
                     && poBranch.getBranchCode().equals((String) getValue("sBranchCd"))) {
                 return poBranch;
             } else {
+                if (ReferenceCache.tryLoad("Branch", (String) getValue("sBranchCd"), poBranch)) {
+                    return poBranch;
+                }
+
                 poJSON = poBranch.openRecord((String) getValue("sBranchCd"));
 
                 if ("success".equals((String) poJSON.get("result"))) {
+                    ReferenceCache.store("Branch", (String) getValue("sBranchCd"), poBranch);
                     return poBranch;
                 } else {
                     poBranch.initialize();

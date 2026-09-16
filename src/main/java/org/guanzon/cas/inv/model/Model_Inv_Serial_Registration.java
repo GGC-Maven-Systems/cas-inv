@@ -10,6 +10,8 @@ import org.guanzon.cas.inv.services.InvModels;
 import org.json.simple.JSONObject;
 
 public class Model_Inv_Serial_Registration extends Model {
+    //poSerial is intentionally NOT constructed in initialize() - see InvSerial() below, which
+    //builds it lazily on first access so opening this record never touches Inv_Serial.
     private Model_Inv_Serial poSerial;
 
     @Override
@@ -34,11 +36,7 @@ public class Model_Inv_Serial_Registration extends Model {
             poEntity.absolute(1);
 
             ID = "sSerialID";
-            
-            //initialize other connections
-            InvModels inv = new InvModels(poGRider);
-            poSerial = inv.InventorySerial();
-            
+
             pnEditMode = EditMode.UNKNOWN;
         } catch (SQLException e) {
             logwrapr.severe(e.getMessage());
@@ -188,6 +186,10 @@ public class Model_Inv_Serial_Registration extends Model {
     }
     
     public Model_Inv_Serial InvSerial() throws SQLException, GuanzonException{
+        if (poSerial == null) {
+            poSerial = new InvModels(poGRider).InventorySerial();
+        }
+
         if (!"".equals((String) getValue("sSerialID"))) {
             if (poSerial.getEditMode() == EditMode.READY
                     && poSerial.getStockId().equals((String) getValue("sSerialID"))) {

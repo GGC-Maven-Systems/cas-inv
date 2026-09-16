@@ -3,6 +3,7 @@ package org.guanzon.cas.inv.model;
 import java.sql.SQLException;
 import java.util.Date;
 import org.guanzon.appdriver.agent.services.Model;
+import org.guanzon.appdriver.agent.services.ReferenceCache;
 import org.guanzon.appdriver.base.GuanzonException;
 import org.guanzon.appdriver.base.MiscUtil;
 import org.guanzon.appdriver.constant.EditMode;
@@ -13,6 +14,9 @@ import org.guanzon.cas.parameter.model.Model_Branch;
 import org.json.simple.JSONObject;
 
 public class Model_Inv_Serial_Ledger extends Model {
+    //poInventorySerial/poBranch are intentionally NOT constructed in initialize() - see their
+    //accessors below, which build them lazily on first access so opening this record never
+    //touches those tables.
     private Model_Inv_Serial poInventorySerial;
     private Model_Branch poBranch;
 
@@ -39,14 +43,7 @@ public class Model_Inv_Serial_Ledger extends Model {
             ID2 = "sBranchCd";
             ID3 = "sSourceCd";
             ID4 = "sSourceNo";
-            
-            //initialize other connections
-            InvModels inv = new InvModels(poGRider);
-            poInventorySerial = inv.InventorySerial();
-            
-            ParamModels model = new ParamModels(poGRider);
-            poBranch = model.Branch();
-            
+
             pnEditMode = EditMode.UNKNOWN;
         } catch (SQLException e) {
             logwrapr.severe(e.getMessage());
@@ -132,6 +129,10 @@ public class Model_Inv_Serial_Ledger extends Model {
     }
     
     public Model_Inv_Serial InventorySerial() throws SQLException, GuanzonException{
+        if (poInventorySerial == null) {
+            poInventorySerial = new InvModels(poGRider).InventorySerial();
+        }
+
         if (!"".equals((String) getValue("sSerialID"))) {
             if (poInventorySerial.getEditMode() == EditMode.READY
                     && poInventorySerial.getStockId().equals((String) getValue("sSerialID"))) {
@@ -152,15 +153,24 @@ public class Model_Inv_Serial_Ledger extends Model {
         }
     }
     public Model_Branch Branch() throws SQLException, GuanzonException{
+        if (poBranch == null) {
+            poBranch = new ParamModels(poGRider).Branch();
+        }
+
             System.out.println("here is branch code == " + (String) getValue("sBranchCd"));
         if (!"".equals((String) getValue("sBranchCd"))) {
             if (poBranch.getEditMode() == EditMode.READY
                     && poBranch.getBranchCode().equals((String) getValue("sBranchCd"))) {
                 return poBranch;
             } else {
+                if (ReferenceCache.tryLoad("Branch", (String) getValue("sBranchCd"), poBranch)) {
+                    return poBranch;
+                }
+
                 poJSON = poBranch.openRecord((String) getValue("sBranchCd"));
 
                 if ("success".equals((String) poJSON.get("result"))) {
+                    ReferenceCache.store("Branch", (String) getValue("sBranchCd"), poBranch);
                     return poBranch;
                 } else {
                     poBranch.initialize();
