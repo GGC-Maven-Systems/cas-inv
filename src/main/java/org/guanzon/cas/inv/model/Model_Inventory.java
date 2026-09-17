@@ -387,19 +387,21 @@ public class Model_Inventory extends Model {
             poIndustry = new ParamModels(poGRider).Industry();
         }
 
-        if (!"".equals((String) getValue("sIndstCdx"))) {
+        String id = (String) (getValue("sIndstCdx") == null ? "" : getValue("sIndstCdx"));
+        
+        if (!"".equals(id)) {
             if (poIndustry.getEditMode() == EditMode.READY
-                    && poIndustry.getIndustryId().equals((String) getValue("sIndstCdx"))) {
+                    && poIndustry.getIndustryId().equals(id)) {
                 return poIndustry;
             } else {
-                if (ReferenceCache.tryLoad("Industry", (String) getValue("sIndstCdx"), poIndustry)) {
+                if (ReferenceCache.tryLoad("Industry", id, poIndustry)) {
                     return poIndustry;
                 }
 
-                poJSON = poIndustry.openRecord((String) getValue("sIndstCdx"));
+                poJSON = poIndustry.openRecord(id);
 
                 if ("success".equals((String) poJSON.get("result"))) {
-                    ReferenceCache.store("Industry", (String) getValue("sIndstCdx"), poIndustry);
+                    ReferenceCache.store("Industry", id, poIndustry);
                     return poIndustry;
                 } else {
                     poIndustry.initialize();
@@ -417,19 +419,21 @@ public class Model_Inventory extends Model {
             poCategory = new ParamModels(poGRider).Category();
         }
 
-        if (!"".equals((String) getValue("sCategCd1"))) {
+        String id = (String) (getValue("sCategCd1") == null ? "" : getValue("sCategCd1"));
+        
+        if (!"".equals(id)) {
             if (poCategory.getEditMode() == EditMode.READY
-                    && poCategory.getCategoryId().equals((String) getValue("sCategCd1"))) {
+                    && poCategory.getCategoryId().equals(id)) {
                 return poCategory;
             } else {
-                if (ReferenceCache.tryLoad("Category", (String) getValue("sCategCd1"), poCategory)) {
+                if (ReferenceCache.tryLoad("Category", id, poCategory)) {
                     return poCategory;
                 }
 
-                poJSON = poCategory.openRecord((String) getValue("sCategCd1"));
+                poJSON = poCategory.openRecord(id);
 
                 if ("success".equals((String) poJSON.get("result"))) {
-                    ReferenceCache.store("Category", (String) getValue("sCategCd1"), poCategory);
+                    ReferenceCache.store("Category", id, poCategory);
                     return poCategory;
                 } else {
                     poCategory.initialize();
@@ -447,16 +451,18 @@ public class Model_Inventory extends Model {
             poCategoryLevel2 = new ParamModels(poGRider).Category2();
         }
 
-        if (!"".equals((String) getValue("sCategCd2"))) {
+        String id = (String) (getValue("sCategCd2") == null ? "" : getValue("sCategCd2"));
+        
+        if (!"".equals(id)) {
             if (poCategoryLevel2.getEditMode() == EditMode.READY
-                    && poCategoryLevel2.getCategoryId().equals((String) getValue("sCategCd2"))) {
+                    && poCategoryLevel2.getCategoryId().equals(id)) {
                 return poCategoryLevel2;
             } else {
-                if (ReferenceCache.tryLoad("Category_Level2", (String) getValue("sCategCd2"), poCategoryLevel2)) {
+                if (ReferenceCache.tryLoad("Category_Level2", id, poCategoryLevel2)) {
                     return poCategoryLevel2;
                 }
 
-                poJSON = poCategoryLevel2.openRecord((String) getValue("sCategCd2"));
+                poJSON = poCategoryLevel2.openRecord(id);
 
                 if ("success".equals((String) poJSON.get("result"))) {
                     ReferenceCache.store("Category_Level2", (String) getValue("sCategCd2"), poCategoryLevel2);
@@ -477,19 +483,21 @@ public class Model_Inventory extends Model {
             poCategoryLevel3 = new ParamModels(poGRider).Category3();
         }
 
-        if (!"".equals((String) getValue("sCategCd3"))) {
+        String id = (String) (getValue("sCategCd3") == null ? "" : getValue("sCategCd3"));
+        
+        if (!"".equals(id)) {
             if (poCategoryLevel3.getEditMode() == EditMode.READY
-                    && poCategoryLevel3.getCategoryId().equals((String) getValue("sCategCd3"))) {
+                    && poCategoryLevel3.getCategoryId().equals(id)) {
                 return poCategoryLevel3;
             } else {
-                if (ReferenceCache.tryLoad("Category_Level3", (String) getValue("sCategCd3"), poCategoryLevel3)) {
+                if (ReferenceCache.tryLoad("Category_Level3", id, poCategoryLevel3)) {
                     return poCategoryLevel3;
                 }
 
-                poJSON = poCategoryLevel3.openRecord((String) getValue("sCategCd3"));
+                poJSON = poCategoryLevel3.openRecord(id);
 
                 if ("success".equals((String) poJSON.get("result"))) {
-                    ReferenceCache.store("Category_Level3", (String) getValue("sCategCd3"), poCategoryLevel3);
+                    ReferenceCache.store("Category_Level3", id, poCategoryLevel3);
                     return poCategoryLevel3;
                 } else {
                     poCategoryLevel3.initialize();
@@ -507,19 +515,21 @@ public class Model_Inventory extends Model {
             poCategoryLevel4 = new ParamModels(poGRider).Category4();
         }
 
-        if (!"".equals((String) getValue("sCategCd4"))) {
+        String id = (String) (getValue("sCategCd4") == null ? "" : getValue("sCategCd4"));
+        
+        if (!"".equals(id)) {
             if (poCategoryLevel4.getEditMode() == EditMode.READY
-                    && poCategoryLevel4.getCategoryId().equals((String) getValue("sCategCd4"))) {
+                    && poCategoryLevel4.getCategoryId().equals(id)) {
                 return poCategoryLevel4;
             } else {
-                if (ReferenceCache.tryLoad("Category_Level4", (String) getValue("sCategCd4"), poCategoryLevel4)) {
+                if (ReferenceCache.tryLoad("Category_Level4", id, poCategoryLevel4)) {
                     return poCategoryLevel4;
                 }
 
-                poJSON = poCategoryLevel4.openRecord((String) getValue("sCategCd4"));
+                poJSON = poCategoryLevel4.openRecord(id);
 
                 if ("success".equals((String) poJSON.get("result"))) {
-                    ReferenceCache.store("Category_Level4", (String) getValue("sCategCd4"), poCategoryLevel4);
+                    ReferenceCache.store("Category_Level4", id, poCategoryLevel4);
                     return poCategoryLevel4;
                 } else {
                     poCategoryLevel4.initialize();
@@ -537,19 +547,21 @@ public class Model_Inventory extends Model {
             poBrand = new ParamModels(poGRider).Brand();
         }
 
-        if (!"".equals((String) getValue("sBrandIDx"))) {
+        String id = (String) (getValue("sBrandIDx") == null ? "" : getValue("sBrandIDx"));
+        
+        if (!"".equals(id)) {
             if (poBrand.getEditMode() == EditMode.READY
-                    && poBrand.getBrandId().equals((String) getValue("sBrandIDx"))) {
+                    && poBrand.getBrandId().equals(id)) {
                 return poBrand;
             } else {
-                if (ReferenceCache.tryLoad("Brand", (String) getValue("sBrandIDx"), poBrand)) {
+                if (ReferenceCache.tryLoad("Brand", id, poBrand)) {
                     return poBrand;
                 }
 
-                poJSON = poBrand.openRecord((String) getValue("sBrandIDx"));
+                poJSON = poBrand.openRecord(id);
 
                 if ("success".equals((String) poJSON.get("result"))) {
-                    ReferenceCache.store("Brand", (String) getValue("sBrandIDx"), poBrand);
+                    ReferenceCache.store("Brand", id, poBrand);
                     return poBrand;
                 } else {
                     poBrand.initialize();
@@ -566,20 +578,22 @@ public class Model_Inventory extends Model {
         if (poModel == null) {
             poModel = new ParamModels(poGRider).Model();
         }
+        
+        String id = (String) (getValue("sModelIDx") == null ? "" : getValue("sModelIDx"));
 
-        if (!"".equals((String) getValue("sModelIDx"))) {
+        if (!"".equals(id)) {
             if (poModel.getEditMode() == EditMode.READY
-                    && poModel.getModelId().equals((String) getValue("sModelIDx"))) {
+                    && poModel.getModelId().equals(id)) {
                 return poModel;
             } else {
-                if (ReferenceCache.tryLoad("Model", (String) getValue("sModelIDx"), poModel)) {
+                if (ReferenceCache.tryLoad("Model", id, poModel)) {
                     return poModel;
                 }
 
-                poJSON = poModel.openRecord((String) getValue("sModelIDx"));
+                poJSON = poModel.openRecord(id);
 
                 if ("success".equals((String) poJSON.get("result"))) {
-                    ReferenceCache.store("Model", (String) getValue("sModelIDx"), poModel);
+                    ReferenceCache.store("Model", id, poModel);
                     return poModel;
                 } else {
                     poModel.initialize();
@@ -596,20 +610,22 @@ public class Model_Inventory extends Model {
         if (poColor == null) {
             poColor = new ParamModels(poGRider).Color();
         }
+        
+        String id = (String) (getValue("sColorIDx") == null ? "" : getValue("sColorIDx"));
 
-        if (!"".equals((String) getValue("sColorIDx"))) {
+        if (!"".equals(id)) {
             if (poColor.getEditMode() == EditMode.READY
-                    && poColor.getColorId().equals((String) getValue("sColorIDx"))) {
+                    && poColor.getColorId().equals(id)) {
                 return poColor;
             } else {
-                if (ReferenceCache.tryLoad("Color", (String) getValue("sColorIDx"), poColor)) {
+                if (ReferenceCache.tryLoad("Color", id, poColor)) {
                     return poColor;
                 }
 
-                poJSON = poColor.openRecord((String) getValue("sColorIDx"));
+                poJSON = poColor.openRecord(id);
 
                 if ("success".equals((String) poJSON.get("result"))) {
-                    ReferenceCache.store("Color", (String) getValue("sColorIDx"), poColor);
+                    ReferenceCache.store("Color", id, poColor);
                     return poColor;
                 } else {
                     poColor.initialize();
@@ -627,19 +643,21 @@ public class Model_Inventory extends Model {
             poMeasure = new ParamModels(poGRider).Measurement();
         }
 
-        if (!"".equals((String) getValue("sMeasurID"))) {
+        String id = (String) (getValue("sMeasurID") == null ? "" : getValue("sMeasurID"));
+        
+        if (!"".equals(id)) {
             if (poMeasure.getEditMode() == EditMode.READY
-                    && poMeasure.getMeasureId().equals((String) getValue("sMeasurID"))) {
+                    && poMeasure.getMeasureId().equals(id)) {
                 return poMeasure;
             } else {
-                if (ReferenceCache.tryLoad("Measure", (String) getValue("sMeasurID"), poMeasure)) {
+                if (ReferenceCache.tryLoad("Measure", id, poMeasure)) {
                     return poMeasure;
                 }
 
-                poJSON = poMeasure.openRecord((String) getValue("sMeasurID"));
+                poJSON = poMeasure.openRecord(id);
 
                 if ("success".equals((String) poJSON.get("result"))) {
-                    ReferenceCache.store("Measure", (String) getValue("sMeasurID"), poMeasure);
+                    ReferenceCache.store("Measure", id, poMeasure);
                     return poMeasure;
                 } else {
                     poMeasure.initialize();
@@ -656,20 +674,22 @@ public class Model_Inventory extends Model {
         if (poInventoryType == null) {
             poInventoryType = new ParamModels(poGRider).InventoryType();
         }
-
-        if (!"".equals((String) getValue("sInvTypCd"))) {
+        
+        String id = (String) (getValue("sInvTypCd") == null ? "" : getValue("sInvTypCd"));
+        
+        if (!"".equals(id)) {
             if (poInventoryType.getEditMode() == EditMode.READY
-                    && poInventoryType.getInventoryTypeId().equals((String) getValue("sInvTypCd"))) {
+                    && poInventoryType.getInventoryTypeId().equals(id)) {
                 return poInventoryType;
             } else {
-                if (ReferenceCache.tryLoad("Inv_Type", (String) getValue("sInvTypCd"), poInventoryType)) {
+                if (ReferenceCache.tryLoad("Inv_Type", id, poInventoryType)) {
                     return poInventoryType;
                 }
 
-                poJSON = poInventoryType.openRecord((String) getValue("sInvTypCd"));
+                poJSON = poInventoryType.openRecord(id);
 
                 if ("success".equals((String) poJSON.get("result"))) {
-                    ReferenceCache.store("Inv_Type", (String) getValue("sInvTypCd"), poInventoryType);
+                    ReferenceCache.store("Inv_Type", id, poInventoryType);
                     return poInventoryType;
                 } else {
                     poInventoryType.initialize();
@@ -687,19 +707,21 @@ public class Model_Inventory extends Model {
             poVariant = new ParamModels(poGRider).ModelVariant();
         }
 
-        if (!"".equals((String) getValue("sVrntIDxx"))) {
+        String id = (String) (getValue("sVrntIDxx") == null ? "" : getValue("sVrntIDxx"));
+        
+        if (!"".equals(id)) {
             if (poVariant.getEditMode() == EditMode.READY
-                    && poVariant.getVariantId().equals((String) getValue("sVrntIDxx"))) {
+                    && poVariant.getVariantId().equals(id)) {
                 return poVariant;
             } else {
-                if (ReferenceCache.tryLoad("Model_Variant", (String) getValue("sVrntIDxx"), poVariant)) {
+                if (ReferenceCache.tryLoad("Model_Variant", id, poVariant)) {
                     return poVariant;
                 }
 
-                poJSON = poVariant.openRecord((String) getValue("sVrntIDxx"));
+                poJSON = poVariant.openRecord(id);
 
                 if ("success".equals((String) poJSON.get("result"))) {
-                    ReferenceCache.store("Model_Variant", (String) getValue("sVrntIDxx"), poVariant);
+                    ReferenceCache.store("Model_Variant", id, poVariant);
                     return poVariant;
                 } else {
                     poVariant.initialize();
@@ -717,12 +739,14 @@ public class Model_Inventory extends Model {
             poSuperseded = new InvModels(poGRider).InventorySuperseded();
         }
 
-        if (!"".equals((String) getValue("sSupersed"))) {
+        String id = (String) (getValue("sSupersed") == null ? "" : getValue("sSupersed"));
+        
+        if (!"".equals(id)) {
             if (poSuperseded.getEditMode() == EditMode.READY
-                    && poSuperseded.getStockId().equals((String) getValue("sSupersed"))) {
+                    && poSuperseded.getStockId().equals(id)) {
                 return poSuperseded;
             } else {
-                poJSON = poSuperseded.openRecord((String) getValue("sSupersed"));
+                poJSON = poSuperseded.openRecord(id);
 
                 if ("success".equals((String) poJSON.get("result"))) {
                     return poSuperseded;
