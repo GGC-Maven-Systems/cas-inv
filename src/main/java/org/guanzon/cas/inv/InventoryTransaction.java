@@ -271,7 +271,8 @@ public class InventoryTransaction {
                 //mac 2026.05.27 include purchase receiving transaction type
                 if(!(InvTransCons.BRANCH_TRANSFER_ACCEPTANCE + "»" +
                         InvTransCons.PURCHASE_RECEIVING  + "»" +
-                        InvTransCons.INVENTORY_ADJUSTMENT ).toUpperCase().contains(psSourceCD.toUpperCase())){
+                        InvTransCons.INVENTORY_ADJUSTMENT + "»" +
+                        InvTransCons.BRANCH_TRANSFER).toUpperCase().contains(psSourceCD.toUpperCase())){
                     throw new GuanzonException(GuanzonException.GE_NOTFOUND_EXCEPTION, "Please create the inventory for the branch!");
                 }
             }
@@ -622,7 +623,8 @@ public class InventoryTransaction {
                 lsSQL = "";
 
                 if ((InvTransCons.BRANCH_TRANSFER_ACCEPTANCE + "»"
-                        + InvTransCons.PURCHASE_RECEIVING).toUpperCase().contains(psSourceCD.toUpperCase())) {
+                        + InvTransCons.PURCHASE_RECEIVING+ "»"
+                        + InvTransCons.BRANCH_TRANSFER).toUpperCase().contains(psSourceCD.toUpperCase())) {
                     List<String> setClauses = new ArrayList<>();
 
                     if (loRS.getDate("dAcquired") == null) {
