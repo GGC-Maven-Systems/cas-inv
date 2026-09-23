@@ -388,25 +388,33 @@ public class Model_Inv_Master extends Model {
             return poWarehouse;
         }
     }
-
     public Model_Inv_Location Location() throws SQLException, GuanzonException {
         if (poLocation == null) {
             poLocation = new ParamModels(poGRider).InventoryLocation();
         }
 
-        if (!"".equals((String) getValue("sLocatnID"))) {
+        if (getValue("sLocatnID") != null
+                && !"".equals((String) getValue("sLocatnID"))) {
+
             if (poLocation.getEditMode() == EditMode.READY
                     && poLocation.getLocationId().equals((String) getValue("sLocatnID"))) {
                 return poLocation;
             } else {
-                if (ReferenceCache.tryLoad("Inv_Location", (String) getValue("sLocatnID"), poLocation)) {
+                if (ReferenceCache.tryLoad(
+                        "Inv_Location",
+                        (String) getValue("sLocatnID"),
+                        poLocation)) {
                     return poLocation;
                 }
 
                 poJSON = poLocation.openRecord((String) getValue("sLocatnID"));
 
                 if ("success".equals((String) poJSON.get("result"))) {
-                    ReferenceCache.store("Inv_Location", (String) getValue("sLocatnID"), poLocation);
+                    ReferenceCache.store(
+                            "Inv_Location",
+                            (String) getValue("sLocatnID"),
+                            poLocation
+                    );
                     return poLocation;
                 } else {
                     poLocation.initialize();
@@ -424,19 +432,27 @@ public class Model_Inv_Master extends Model {
             poBinLevel = new ParamModels(poGRider).Bin();
         }
 
-        if (!"".equals((String) getValue("sBinNumbr"))) {
+        if (getValue("sBinNumbr") != null
+                && !"".equals((String) getValue("sBinNumbr"))) {
+
             if (poBinLevel.getEditMode() == EditMode.READY
                     && poBinLevel.getBinId().equals((String) getValue("sBinNumbr"))) {
                 return poBinLevel;
             } else {
-                if (ReferenceCache.tryLoad("Bin", (String) getValue("sBinNumbr"), poBinLevel)) {
+                if (ReferenceCache.tryLoad(
+                        "Bin",
+                        (String) getValue("sBinNumbr"),
+                        poBinLevel)) {
                     return poBinLevel;
                 }
 
                 poJSON = poBinLevel.openRecord((String) getValue("sBinNumbr"));
 
                 if ("success".equals((String) poJSON.get("result"))) {
-                    ReferenceCache.store("Bin", (String) getValue("sBinNumbr"), poBinLevel);
+                    ReferenceCache.store(
+                            "Bin",
+                            (String) getValue("sBinNumbr"),
+                            poBinLevel);
                     return poBinLevel;
                 } else {
                     poBinLevel.initialize();
@@ -448,6 +464,66 @@ public class Model_Inv_Master extends Model {
             return poBinLevel;
         }
     }
+
+//    public Model_Inv_Location Location() throws SQLException, GuanzonException {
+//        if (poLocation == null) {
+//            poLocation = new ParamModels(poGRider).InventoryLocation();
+//        }
+//
+//        if (!"".equals((String) getValue("sLocatnID"))) {
+//            if (poLocation.getEditMode() == EditMode.READY
+//                    && poLocation.getLocationId().equals((String) getValue("sLocatnID"))) {
+//                return poLocation;
+//            } else {
+//                if (ReferenceCache.tryLoad("Inv_Location", (String) getValue("sLocatnID"), poLocation)) {
+//                    return poLocation;
+//                }
+//
+//                poJSON = poLocation.openRecord((String) getValue("sLocatnID"));
+//
+//                if ("success".equals((String) poJSON.get("result"))) {
+//                    ReferenceCache.store("Inv_Location", (String) getValue("sLocatnID"), poLocation);
+//                    return poLocation;
+//                } else {
+//                    poLocation.initialize();
+//                    return poLocation;
+//                }
+//            }
+//        } else {
+//            poLocation.initialize();
+//            return poLocation;
+//        }
+//    }
+
+//    public Model_Bin BinLevel() throws SQLException, GuanzonException {
+//        if (poBinLevel == null) {
+//            poBinLevel = new ParamModels(poGRider).Bin();
+//        }
+//
+//        if (!"".equals((String) getValue("sBinNumbr"))) {
+//            if (poBinLevel.getEditMode() == EditMode.READY
+//                    && poBinLevel.getBinId().equals((String) getValue("sBinNumbr"))) {
+//                return poBinLevel;
+//            } else {
+//                if (ReferenceCache.tryLoad("Bin", (String) getValue("sBinNumbr"), poBinLevel)) {
+//                    return poBinLevel;
+//                }
+//
+//                poJSON = poBinLevel.openRecord((String) getValue("sBinNumbr"));
+//
+//                if ("success".equals((String) poJSON.get("result"))) {
+//                    ReferenceCache.store("Bin", (String) getValue("sBinNumbr"), poBinLevel);
+//                    return poBinLevel;
+//                } else {
+//                    poBinLevel.initialize();
+//                    return poBinLevel;
+//                }
+//            }
+//        } else {
+//            poBinLevel.initialize();
+//            return poBinLevel;
+//        }
+//    }
 
     public Model_Inventory Inventory() throws SQLException, GuanzonException {
         if (poInventory == null) {

@@ -560,8 +560,10 @@ public class InvMaster extends Parameter {
                 lsSQL = MiscUtil.addCondition(lsSQL, "a.sCategCd1 = " + SQLUtil.toSQL(psCategoryCode));
             }
         }
+
         JSONObject loJSON = new JSONObject();
         System.out.println("Search Inventory Master Record Query : " + lsSQL);
+
         poJSON = ShowDialogFX.Search(poGRider,
                 lsSQL,
                 value,
@@ -572,20 +574,33 @@ public class InvMaster extends Parameter {
 
         if (poJSON != null) {
             String stockID = (String) poJSON.get("sStockIDx");
-            loJSON = poModel.openRecord(stockID, poGRider.getIndustry(), poGRider.getBranchCode());
+
+            loJSON = poModel.openRecord(
+                    stockID,
+                    poGRider.getIndustry(),
+                    poGRider.getBranchCode()
+            );
+
             if (!"success".equals(loJSON.get("result"))) {
-                loJSON = new JSONObject();
                 loJSON = newRecord();
+
                 getModel().setStockId(stockID);
                 getModel().setBranchCode(poGRider.getBranchCode());
                 getModel().setIndustryCode(psIndustryCode);
+
+                return loJSON;
             }
+
             return loJSON;
+
         } else {
-            poJSON = new JSONObject();
-            poJSON.put("result", "error");
-            poJSON.put("message", "No record loaded.");
-            return poJSON;
+            // No barcode found
+            loJSON = newRecord();
+
+            getModel().setBranchCode(poGRider.getBranchCode());
+            getModel().setIndustryCode(psIndustryCode);
+
+            return loJSON;
         }
     }
 
