@@ -594,11 +594,13 @@ public class InvMaster extends Parameter {
             return loJSON;
 
         } else {
-            // No barcode found
-            loJSON = newRecord();
-
-            getModel().setBranchCode(poGRider.getBranchCode());
-            getModel().setIndustryCode(psIndustryCode);
+//            // No barcode found
+//            loJSON = newRecord();
+//
+//            getModel().setBranchCode(poGRider.getBranchCode());
+//            getModel().setIndustryCode(psIndustryCode);
+            poJSON.put("result", "error");
+            poJSON.put("message", "No Inventory loaded.");
 
             return loJSON;
         }
