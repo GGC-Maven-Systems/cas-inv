@@ -111,6 +111,15 @@ public class Inventory extends Parameter {
         return (List<Model_Inventory>) (List<?>) paRecord;
     }
 
+    public JSONObject SaveRecord() throws SQLException, GuanzonException, CloneNotSupportedException {
+        JSONObject loJSON = new JSONObject();
+        loJSON = saveRecord();
+
+        openRecord(getModel().getStockId());
+
+        return loJSON;
+    }
+
     //to refactor in sub inventory
     @SuppressWarnings("unchecked")
     public Model_Inventory getOther(int entryNo) {
@@ -487,7 +496,7 @@ public class Inventory extends Parameter {
                 + ", a.cRecdStat"
                 + ", a.sModified"
                 + ", a.dModified"
-                + ", IFNULL(b.sDescript, '') xBrandNme" 
+                + ", IFNULL(b.sDescript, '') xBrandNme"
                 + ", IFNULL(c.sDescript, '') xModelNme"
                 + ", IFNULL(d.sDescript, '') xColorNme"
                 + ", IFNULL(e.sDescript, '') xMeasurNm"
