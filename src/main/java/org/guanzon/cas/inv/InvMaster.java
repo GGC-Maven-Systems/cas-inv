@@ -561,6 +561,8 @@ public class InvMaster extends Parameter {
             }
         }
 
+        lsSQL = lsSQL + " GROUP BY a.sStockIDx ";
+
         JSONObject loJSON = new JSONObject();
         System.out.println("Search Inventory Master Record Query : " + lsSQL);
 
