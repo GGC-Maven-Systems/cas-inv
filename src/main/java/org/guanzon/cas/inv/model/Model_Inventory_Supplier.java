@@ -17,6 +17,7 @@ import org.json.simple.JSONObject;
  * @author maynevval 07-26-2025
  */
 public class Model_Inventory_Supplier extends Model {
+
     //poInventory/poClientMaster are intentionally NOT constructed in initialize() - see their
     //accessors below, which build them lazily on first access so opening this record never
     //touches those tables.
@@ -61,6 +62,31 @@ public class Model_Inventory_Supplier extends Model {
 
     public String getStockID() {
         return (String) getValue("sStockIDx");
+    }
+
+    //sSourceNo
+    public JSONObject setSourceNo(String sourceNo) {
+        return setValue("sSourceNo", sourceNo);
+    }
+
+    public String getSourceNo() {
+        return (String) getValue("sSourceNo");
+    }
+
+    public JSONObject setUnitPrice(Double quantity) {
+        return setValue("nUnitPrce", quantity);
+    }
+
+    public Double getUnitPrice() {
+        return Double.parseDouble(getValue("nUnitPrce").toString());
+    }
+
+    public JSONObject setAveragePrice(Double quantity) {
+        return setValue("nAvePurcx", quantity);
+    }
+
+    public Double getAveragePrice() {
+        return Double.parseDouble(getValue("nAvePurcx").toString());
     }
 
     //sSupplier
