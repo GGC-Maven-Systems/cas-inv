@@ -17,6 +17,7 @@ import org.guanzon.appdriver.constant.UserRight;
 import org.guanzon.cas.inv.model.Model_Inv_Ledger;
 import org.guanzon.cas.inv.model.Model_Inv_Master;
 import org.guanzon.cas.inv.model.Model_Inv_Serial;
+import org.guanzon.cas.inv.model.Model_Inventory_Supplier;
 import org.guanzon.cas.inv.services.InvModels;
 import org.guanzon.cas.parameter.model.Model_Bin;
 import org.guanzon.cas.parameter.model.Model_Inv_Location;
@@ -29,6 +30,7 @@ public class InvMaster extends Parameter {
     Model_Inv_Master poModel;
     private List<Model> paRecordSerial;
     private List<Model> paRecordLedger;
+    private List<Model> paRecordSupplier;
 
     private String psIndustryCode = "";
     private String psCategoryCode = "";
@@ -54,6 +56,7 @@ public class InvMaster extends Parameter {
         poModel = new InvModels(poGRider).InventoryMaster();
         paRecordSerial = new ArrayList<Model>();
         paRecordLedger = new ArrayList<Model>();
+        paRecordSupplier = new ArrayList<Model>();
         super.initialize();
     }
 
@@ -107,6 +110,11 @@ public class InvMaster extends Parameter {
 
         poJSON.put("result", "success");
         return poJSON;
+    }
+
+    @SuppressWarnings("unchecked")
+    public List<Model_Inventory_Supplier> getSupplierList() {
+        return (List<Model_Inventory_Supplier>) (List<?>) paRecordSupplier;
     }
 
     @SuppressWarnings("unchecked")
@@ -724,19 +732,72 @@ public class InvMaster extends Parameter {
         }
 
         while (loRS.next()) {
-            String stockId = loRS.getString("sStockIDx");
-            String sourcecode = loRS.getString("sSourceCd");
-            String sourceno = loRS.getString("sSourceNo");
 
             Model_Inv_Ledger loInventoryLedger = new InvModels(poGRider).InventoryLedger();
 
-            poJSON = loInventoryLedger.openRecord(stockId, poGRider.getBranchCode(), sourcecode, sourceno);
+//            poJSON = loInventoryLedger.openRecord(stockId, poGRider.getBranchCode(), sourcecode, sourceno,reverse);
+            for (int lnCtr = 1; lnCtr <= loRS.getMetaData().getColumnCount(); ++lnCtr) {
 
-            if ("success".equals((String) poJSON.get("result"))) {
-                paRecordLedger.add((Model) loInventoryLedger);
-            } else {
-                return poJSON;
+                String lsColumnName = loRS.getMetaData().getColumnName(lnCtr);
+                loInventoryLedger.setValue(lsColumnName, loRS.getObject(lsColumnName));
+
             }
+
+            paRecordLedger.add((Model) loInventoryLedger);
+        }
+
+        poJSON = new JSONObject();
+        poJSON.put("result", "success");
+        return poJSON;
+    }
+
+    public JSONObject loadSupplierList()
+            throws SQLException, GuanzonException, CloneNotSupportedException {
+
+        if (getModel().getStockId() == null || getModel().getStockId().isEmpty()) {
+            poJSON.put("result", "error");
+            poJSON.put("message", "No Inventory loaded.");
+        }
+        paRecordSupplier.clear();
+        String lsSQL = "SELECT"
+                + "  a.sStockIDx"
+                + ", a.sIndstCdx"
+                + ", a.sSupplier"
+                + ", a.nUnitPrce"
+                + ", a.nAvePurcx"
+                + ", a.sSourceNo"
+                + ", a.cRecdStat"
+                + " FROM Inv_Supplier a ";
+
+        if (!psIndustryCode.isEmpty()) {
+            lsSQL = MiscUtil.addCondition(lsSQL, "a.sIndstCdx = " + SQLUtil.toSQL(psIndustryCode));
+        }
+
+        lsSQL = MiscUtil.addCondition(lsSQL, "a.sStockIDx = " + SQLUtil.toSQL(getModel().getStockId()));
+        lsSQL = lsSQL + " ORDER BY  a.dTimeStmp ASC ";
+        ResultSet loRS = poGRider.executeQuery(lsSQL);
+        System.out.println("Load Record list query is " + lsSQL);
+
+        if (MiscUtil.RecordCount(loRS)
+                <= 0) {
+            poJSON.put("result", "error");
+            poJSON.put("message", "No record found.");
+            return poJSON;
+        }
+
+        while (loRS.next()) {
+
+            Model_Inventory_Supplier loInventorySupplier = new InvModels(poGRider).InventorySupplier();
+
+//            poJSON = loInventoryLedger.openRecord(stockId, poGRider.getBranchCode(), sourcecode, sourceno,reverse);
+            for (int lnCtr = 1; lnCtr <= loRS.getMetaData().getColumnCount(); ++lnCtr) {
+
+                String lsColumnName = loRS.getMetaData().getColumnName(lnCtr);
+                loInventorySupplier.setValue(lsColumnName, loRS.getObject(lsColumnName));
+
+            }
+
+            paRecordSupplier.add((Model) loInventorySupplier);
         }
 
         poJSON = new JSONObject();
