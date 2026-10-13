@@ -111,6 +111,15 @@ public class Inventory extends Parameter {
         return (List<Model_Inventory>) (List<?>) paRecord;
     }
 
+    public JSONObject SaveRecord() throws SQLException, GuanzonException, CloneNotSupportedException {
+        JSONObject loJSON = new JSONObject();
+        loJSON = saveRecord();
+
+        openRecord(getModel().getStockId());
+
+        return loJSON;
+    }
+
     //to refactor in sub inventory
     @SuppressWarnings("unchecked")
     public Model_Inventory getOther(int entryNo) {
@@ -169,6 +178,7 @@ public class Inventory extends Parameter {
             }
         }
 
+        lsSQL = lsSQL + " GROUP BY a.sStockIDx ";
         System.out.println("Search Record Query : " + lsSQL);
         poJSON = ShowDialogFX.Search(poGRider,
                 lsSQL,
@@ -195,6 +205,7 @@ public class Inventory extends Parameter {
             lsSQL = MiscUtil.addCondition(lsSQL, "g.sSupplier = " + SQLUtil.toSQL(supplierId));
         }
 
+        lsSQL = lsSQL + " GROUP BY a.sStockIDx ";
         poJSON = ShowDialogFX.Search(poGRider,
                 lsSQL,
                 value,
@@ -224,6 +235,7 @@ public class Inventory extends Parameter {
             lsSQL = MiscUtil.addCondition(lsSQL, "a.sBrandIDx = " + SQLUtil.toSQL(brandId));
         }
 
+        lsSQL = lsSQL + " GROUP BY a.sStockIDx ";
         poJSON = ShowDialogFX.Search(poGRider,
                 lsSQL,
                 value,
@@ -257,6 +269,7 @@ public class Inventory extends Parameter {
             lsSQL = MiscUtil.addCondition(lsSQL, "a.sIndstCdx = " + SQLUtil.toSQL(industryId));
         }
 
+        lsSQL = lsSQL + " GROUP BY a.sStockIDx ";
         poJSON = ShowDialogFX.Search(poGRider,
                 lsSQL,
                 value,
@@ -293,7 +306,7 @@ public class Inventory extends Parameter {
         if (categoryId != null) {
             lsSQL = MiscUtil.addCondition(lsSQL, "a.sCategCd1 = " + SQLUtil.toSQL(categoryId));
         }
-
+        lsSQL = lsSQL + " GROUP BY a.sStockIDx ";
         poJSON = ShowDialogFX.Search(poGRider,
                 lsSQL,
                 value,
@@ -314,7 +327,8 @@ public class Inventory extends Parameter {
 
     public JSONObject searchRecordOfVariants(String value, boolean byCode) throws SQLException, GuanzonException {
         String lsSQL = getSQ_Browse();
-
+        
+        lsSQL = lsSQL + " GROUP BY a.sStockIDx ";
         poJSON = ShowDialogFX.Search(poGRider,
                 lsSQL,
                 value,
@@ -340,6 +354,7 @@ public class Inventory extends Parameter {
             lsSQL = MiscUtil.addCondition(lsSQL, "g.sSupplier = " + SQLUtil.toSQL(supplierId));
         }
 
+        lsSQL = lsSQL + " GROUP BY a.sStockIDx ";
         poJSON = ShowDialogFX.Search(poGRider,
                 lsSQL,
                 value,
@@ -377,6 +392,7 @@ public class Inventory extends Parameter {
             lsSQL = MiscUtil.addCondition(lsSQL, "a.sCategCd1 = " + SQLUtil.toSQL(categoryId));
         }
 
+        lsSQL = lsSQL + " GROUP BY a.sStockIDx ";
         poJSON = ShowDialogFX.Search(poGRider,
                 lsSQL,
                 value,
@@ -487,7 +503,7 @@ public class Inventory extends Parameter {
                 + ", a.cRecdStat"
                 + ", a.sModified"
                 + ", a.dModified"
-                + ", IFNULL(b.sDescript, '') xBrandNme" 
+                + ", IFNULL(b.sDescript, '') xBrandNme"
                 + ", IFNULL(c.sDescript, '') xModelNme"
                 + ", IFNULL(d.sDescript, '') xColorNme"
                 + ", IFNULL(e.sDescript, '') xMeasurNm"
@@ -996,6 +1012,7 @@ public class Inventory extends Parameter {
             lsSQL = MiscUtil.addCondition(lsSQL, "a.sIndstCdx = " + SQLUtil.toSQL(psIndustryCode));
         }
 
+        lsSQL = lsSQL + " GROUP BY a.sStockIDx ";
         System.out.println("Search Record Query : " + lsSQL);
         poJSON = new JSONObject();
         poJSON = ShowDialogFX.Search(poGRider,
