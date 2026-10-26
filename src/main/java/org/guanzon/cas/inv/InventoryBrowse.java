@@ -824,6 +824,67 @@ public class InventoryBrowse {
         return this.poJSON;
     }
 
+    public JSONObject searchInventorySerialWithStock(String value, int fnColumn) throws SQLException, GuanzonException {
+        String lsSQL = getSQ_BrowseInventorySerialwithStock();
+
+        String lsCondition = generateConditionSerial();
+        if (!lsCondition.isEmpty()) {
+            lsSQL = MiscUtil.addCondition(lsSQL, lsCondition);
+        }
+
+        if (pbisWithQty) {
+            lsSQL = MiscUtil.addCondition(lsSQL, "bb.nQtyOnHnd > 0");
+            lsSQL = MiscUtil.addCondition(lsSQL, "a.cSoldStat = '0' ");
+        }
+
+        //default
+        String lscolHeader = "ID»Description»Serial 01»Serial 02»Branch Name";
+        String lscolName = "sSerialID»xDescript»sSerial01»sSerial02»xBranchNm";
+        String lscolCriteria = "a.sSerialID»b.sDescript»a.sSerial01»a.sSerial02»IFNULL(bb.sBranchNm, '')";
+
+        if (!psCustomHeader.isEmpty() && !psCustomName.isEmpty() && !psCustomCriteria.isEmpty()) {
+            lscolHeader = psCustomHeader;
+            lscolName = psCustomName;
+            lscolCriteria = psCustomCriteria;
+        }
+
+        System.out.println("Search Dialog Query : " + lsSQL);
+        this.poJSON = ShowDialogFX.Search(
+                poGRider,
+                lsSQL,
+                value,
+                lscolHeader,
+                lscolName,
+                lscolCriteria,
+                fnColumn
+        );
+        if (this.poJSON != null) {
+            JSONObject result = new JSONObject();
+
+            result = this.poInvMaster.openRecord((String) this.poJSON.get("sStockIDx"), (String) this.poJSON.get("sBranchCd"));
+            if ("error".equals((String) result.get("result"))) {
+                return poJSON;
+            }
+
+            result = this.poInventorySerial.openRecord((String) this.poJSON.get("sSerialID"));
+            if ("error".equals((String) result.get("result"))) {
+                return poJSON;
+            }
+            result = this.poInventory.openRecord((String) this.poJSON.get("sStockIDx"));
+            if ("error".equals((String) result.get("result"))) {
+                return poJSON;
+            }
+
+            this.poJSON.put("result", "success");
+            return poJSON;
+
+        }
+        this.poJSON = new JSONObject();
+        this.poJSON.put("result", "error");
+        this.poJSON.put("message", "No record loaded.");
+        return this.poJSON;
+    }
+
     public JSONObject searchInventorySerialWithStock(String value, boolean byCode, boolean byExact) throws SQLException, GuanzonException {
         String lsSQL = getSQ_BrowseInventorySerialwithStock();
 
@@ -945,8 +1006,7 @@ public class InventoryBrowse {
         return this.poJSON;
     }
 
-    
-    public JSONObject searchInventoryIssaunce(String value, boolean byCode,String lsAddConditon) throws SQLException, GuanzonException {
+    public JSONObject searchInventoryIssaunce(String value, boolean byCode, String lsAddConditon) throws SQLException, GuanzonException {
         String lsSQL = getSQ_BrowseInventoryIssuance();
 
         String lsCondition = generateConditionInventory(true);
@@ -958,8 +1018,8 @@ public class InventoryBrowse {
             lsSQL = MiscUtil.addCondition(lsSQL, " bb.nQtyOnHnd > 0 ");
             lsSQL = MiscUtil.addCondition(lsSQL, " b.sSerial01 IS NULL OR b.cSoldStat = '0' ");
         }
-        
-        if (!lsAddConditon.isEmpty()){
+
+        if (!lsAddConditon.isEmpty()) {
             lsSQL = MiscUtil.addCondition(lsSQL, lsAddConditon);
         }
         //default
@@ -1009,7 +1069,7 @@ public class InventoryBrowse {
         this.poJSON.put("message", "No record loaded.");
         return this.poJSON;
     }
-    
+
     public JSONObject searchInventoryIssaunce(String value, boolean byCode, boolean byExact) throws SQLException, GuanzonException {
         String lsSQL = getSQ_BrowseInventoryIssuance();
 
@@ -1048,7 +1108,7 @@ public class InventoryBrowse {
         if (this.poJSON != null) {
             JSONObject result = new JSONObject();
 
-            result = this.poInvMaster.openRecord((String) this.poJSON.get("sStockIDx"),(String) this.poJSON.get("sIndstCdx"), (String) this.poJSON.get("sBranchCd"));
+            result = this.poInvMaster.openRecord((String) this.poJSON.get("sStockIDx"), (String) this.poJSON.get("sIndstCdx"), (String) this.poJSON.get("sBranchCd"));
             if ("error".equals((String) result.get("result"))) {
                 return result;
             }
@@ -1094,7 +1154,7 @@ public class InventoryBrowse {
             //supplier
             {"ba.sSupplier", this.getModelSupplierMaster() != null ? this.getModelSupplierMaster().getClientId() : null},
             // inventory
-            {"a.sStockIDx", this.getModelInventory() != null ? this.getModelInventory().getStockId(): null},
+            {"a.sStockIDx", this.getModelInventory() != null ? this.getModelInventory().getStockId() : null},
             {"a.sIndstCdx", this.getModelIndustry() != null ? this.getModelIndustry().getIndustryId() : null},
             {"a.sCategCd1", this.getModelCategory() != null ? this.getModelCategory().getCategoryId() : null},
             {"a.sCategCd1", this.getModelCategory2() != null ? this.getModelCategory2().getCategoryId() : null},
@@ -1155,8 +1215,8 @@ public class InventoryBrowse {
             //supplier
             {"ba.sSupplier", this.getModelSupplierMaster() != null ? this.getModelSupplierMaster().getClientId() : null},
             // inventory
-            
-            {"a.sStockIDx", this.getModelInventory() != null ? this.getModelInventory().getStockId(): null},
+
+            {"a.sStockIDx", this.getModelInventory() != null ? this.getModelInventory().getStockId() : null},
             {"b.sIndstCdx", this.getModelIndustry() != null ? this.getModelIndustry().getIndustryId() : null},
             {"b.sCategCd1", this.getModelCategory() != null ? this.getModelCategory().getCategoryId() : null},
             {"b.sCategCd1", this.getModelCategory2() != null ? this.getModelCategory2().getCategoryId() : null},
