@@ -744,7 +744,7 @@ public class InventoryBrowse {
         );
         if (this.poJSON != null) {
             JSONObject result = new JSONObject();
-            result = this.poInvMaster.openRecord((String) this.poJSON.get("sStockIDx"), (String) this.poJSON.get("sBranchCd"));
+            result = this.poInvMaster.openRecord((String) this.poJSON.get("sStockIDx"), (String) this.poJSON.get("sIndstCdx"), (String) this.poJSON.get("sBranchCd"));
             if ("error".equals((String) result.get("result"))) {
                 return poJSON;
             }
@@ -800,7 +800,7 @@ public class InventoryBrowse {
         if (this.poJSON != null) {
             JSONObject result = new JSONObject();
 
-            result = this.poInvMaster.openRecord((String) this.poJSON.get("sStockIDx"), (String) this.poJSON.get("sBranchCd"));
+            result = this.poInvMaster.openRecord((String) this.poJSON.get("sStockIDx"), (String) this.poJSON.get("sIndstCdx"), (String) this.poJSON.get("sBranchCd"));
             if ("error".equals((String) result.get("result"))) {
                 return poJSON;
             }
@@ -861,7 +861,7 @@ public class InventoryBrowse {
         if (this.poJSON != null) {
             JSONObject result = new JSONObject();
 
-            result = this.poInvMaster.openRecord((String) this.poJSON.get("sStockIDx"), (String) this.poJSON.get("sBranchCd"));
+            result = this.poInvMaster.openRecord((String) this.poJSON.get("sStockIDx"), (String) this.poJSON.get("sIndstCdx"), (String) this.poJSON.get("sBranchCd"));
             if ("error".equals((String) result.get("result"))) {
                 return poJSON;
             }
@@ -922,7 +922,7 @@ public class InventoryBrowse {
         if (this.poJSON != null) {
             JSONObject result = new JSONObject();
 
-            result = this.poInvMaster.openRecord((String) this.poJSON.get("sStockIDx"), (String) this.poJSON.get("sBranchCd"));
+            result = this.poInvMaster.openRecord((String) this.poJSON.get("sStockIDx"), (String) this.poJSON.get("sIndstCdx"), (String) this.poJSON.get("sBranchCd"));
             if ("error".equals((String) result.get("result"))) {
                 return poJSON;
             }
@@ -982,7 +982,7 @@ public class InventoryBrowse {
         if (this.poJSON != null) {
             JSONObject result = new JSONObject();
 
-            result = this.poInvMaster.openRecord((String) this.poJSON.get("sStockIDx"), (String) this.poJSON.get("sBranchCd"));
+            result = this.poInvMaster.openRecord((String) this.poJSON.get("sStockIDx"), (String) this.poJSON.get("sIndstCdx"), (String) this.poJSON.get("sBranchCd"));
             if ("error".equals((String) result.get("result"))) {
                 return poJSON;
             }
@@ -1046,7 +1046,7 @@ public class InventoryBrowse {
         if (this.poJSON != null) {
             JSONObject result = new JSONObject();
 
-            result = this.poInvMaster.openRecord((String) this.poJSON.get("sStockIDx"), (String) this.poJSON.get("sBranchCd"));
+            result = this.poInvMaster.openRecord((String) this.poJSON.get("sStockIDx"), (String) this.poJSON.get("sIndstCdx"), (String) this.poJSON.get("sBranchCd"));
             if ("error".equals((String) result.get("result"))) {
                 return poJSON;
             }
