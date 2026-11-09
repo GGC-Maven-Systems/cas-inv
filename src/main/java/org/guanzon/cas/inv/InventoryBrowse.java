@@ -834,9 +834,9 @@ public class InventoryBrowse {
 
         if (pbisWithQty) {
             lsSQL = MiscUtil.addCondition(lsSQL, "bb.nQtyOnHnd > 0");
-            lsSQL = MiscUtil.addCondition(lsSQL, "a.cSoldStat = '0' ");
         }
 
+        lsSQL = MiscUtil.addCondition(lsSQL, "a.cSoldStat = '0' ");
         //default
         String lscolHeader = "ID»Description»Serial 01»Serial 02»Branch Name";
         String lscolName = "sSerialID»xDescript»sSerial01»sSerial02»xBranchNm";
@@ -1213,8 +1213,8 @@ public class InventoryBrowse {
         String[][] filters = {
             {"a.sBranchCd", this.getModelBranch() != null ? this.getModelBranch().getBranchCode() : null},
             //supplier
-            {"ba.sSupplier", this.getModelSupplierMaster() != null ? this.getModelSupplierMaster().getClientId() : null},
-            // inventory
+            //            {"ba.sSupplier", this.getModelSupplierMaster() != null ? this.getModelSupplierMaster().getClientId() : null},
+            //            // inventory
 
             {"a.sStockIDx", this.getModelInventory() != null ? this.getModelInventory().getStockId() : null},
             {"b.sIndstCdx", this.getModelIndustry() != null ? this.getModelIndustry().getIndustryId() : null},
@@ -1443,9 +1443,13 @@ public class InventoryBrowse {
     }
 
     public String getSQ_BrowseInventorySerialwithStock() {
+        String lsInd = this.getModelIndustry() != null ? this.getModelIndustry().getIndustryId() : null;
+        String lsCat = this.getModelCategory() != null ? this.getModelCategory().getCategoryId() : null;
+
         String lsSQL = "SELECT "
                 + "  a.sSerialID"
                 + ", a.sBranchCd"
+                + ", a.sWHouseID"
                 + ", a.sClientID"
                 + ", a.sSerial01"
                 + ", a.sSerial02"
@@ -1457,7 +1461,6 @@ public class InventoryBrowse {
                 + ", a.sCompnyID"
                 + ", a.sWarranty"
                 + ", a.dModified"
-                + ", b.sStockIDx"
                 + ", b.sBarCodex"
                 + ", b.sDescript"
                 + ", b.sBriefDsc"
@@ -1473,7 +1476,7 @@ public class InventoryBrowse {
                 + ", b.sMeasurID"
                 + ", b.sInvTypCd"
                 + ", b.sIndstCdx"
-                + ", b.nUnitPrce"
+                + ", b.nUnitPrce AS xUnitPrce"
                 + ", b.nSelPrice"
                 + ", b.nDiscLev1"
                 + ", b.nDiscLev2"
@@ -1484,29 +1487,39 @@ public class InventoryBrowse {
                 + ", b.cComboInv"
                 + ", b.cWthPromo"
                 + ", b.cSerialze"
-                + ", b.cUnitType"
+                + ", b.cUnitType AS xUnitType"
                 + ", b.cInvStatx"
                 + ", b.nShlfLife"
                 + ", b.sSupersed"
                 + ", b.cRecdStat"
-                + ", IFNULL (c.sDescript, '') xBrandNme"
-                + ", IFNULL (d.sDescript, '') xModelNme"
-                + ", IFNULL (e.sDescript, '') xColorNme"
-                + ", IFNULL (f.sDescript, '') xMeasurNm"
-                + ", TRIM(CONCAT(IFNULL (g.sDescript, ''),' ',IFNULL (g.nYearMdlx, ''))) xVrntName"
-                + ", IFNULL (d.sModelCde, '') xModelCde"
-                + ", IFNULL (bc.sBranchNm, '') xBranchNm"
-                + ", IFNULL (bc.sBranchCd, '') sBranchCd"
+                + ", bb.sLocatnID"
+                + ", bb.sBinNumbr"
+                + ", bb.nQtyOnHnd"
+                + ", bb.nAvgCostx"
+                + ", bb.nBackOrdr"
+                + ", bb.nResvOrdr"
+                + ", bb.dLastTran"
+                + ", IFNULL(c.sDescript, '') AS xBrandNme"
+                + ", IFNULL(d.sDescript, '') AS xModelNme"
+                + ", IFNULL(d.sModelCde, '') AS xModelCde"
+                + ", IFNULL(e.sDescript, '') AS xColorNme"
+                + ", IFNULL(f.sDescript, '') AS xMeasurNm"
+                + ", TRIM(CONCAT(IFNULL(g.sDescript, ''), ' ', IFNULL(g.nYearMdlx, ''))) AS xVrntName"
+                + ", IFNULL(bc.sBranchNm, '') AS xBranchNm"
+                + ", IFNULL(bc.sBranchCd, '') AS xBranchCd"
                 + " FROM Inv_Serial a"
-                + "  LEFT JOIN Inventory b ON a.sStockIDx = b.sStockIDx"
-                + "  LEFT JOIN Brand c ON b.sBrandIDx = c.sBrandIDx"
-                + "  LEFT JOIN Model d ON b.sModelIDx = d.sModelIDx"
-                + "  LEFT JOIN Color e ON b.sColorIDx = e.sColorIDx"
-                + "  LEFT JOIN Measure f ON b.sMeasurID = f.sMeasurID"
-                + "  LEFT JOIN Model_Variant g ON b.sVrntIDxx = g.sVrntIDxx"
-                + "  LEFT JOIN Inv_Supplier ba ON b.sStockIDx = ba.sStockIDx "
-                + "  LEFT JOIN Inv_Master bb ON b.sStockIDx = bb.sStockIDx AND a.sIndstCdx = bb.sIndstCdx "
-                + "  LEFT JOIN Branch bc ON bb.sBranchCd = bc.sBranchCd";
+                + " INNER JOIN Inventory b ON b.sStockIDx = a.sStockIDx"
+                + (lsInd != null ? " AND b.sIndstCdx = " + SQLUtil.toSQL(lsInd) : "")
+                + (lsCat != null ? " AND b.sCategCd1 = " + SQLUtil.toSQL(lsCat) : "")
+                + " LEFT JOIN Inv_Master bb ON bb.sStockIDx = a.sStockIDx"
+                + "      AND bb.sBranchCd = a.sBranchCd"
+                + "      AND bb.sIndstCdx = a.sIndstCdx"
+                + " LEFT JOIN Brand c ON c.sBrandIDx = b.sBrandIDx"
+                + " LEFT JOIN Model d ON d.sModelIDx = b.sModelIDx"
+                + " LEFT JOIN Color e ON e.sColorIDx = b.sColorIDx"
+                + " LEFT JOIN Measure f ON f.sMeasurID = b.sMeasurID"
+                + " LEFT JOIN Model_Variant g ON g.sVrntIDxx = b.sVrntIDxx"
+                + " LEFT JOIN Branch bc ON bc.sBranchCd = a.sBranchCd";
         return lsSQL;
     }
 
