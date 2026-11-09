@@ -141,6 +141,7 @@ public class InventoryBrowse {
     private String psCustomName = "";
     private String psCustomCriteria = "";
     private boolean pbisWithQty = true;
+    private boolean pbisWithSales = true;
     private boolean pbisSerialize = true;
 
     public InventoryBrowse(GRiderCAS applicationDriver, LogWrapper logWrapper) {
@@ -189,6 +190,10 @@ public class InventoryBrowse {
 
     public void isWithQuantityStock(boolean isWithStockQuantity) {
         pbisWithQty = isWithStockQuantity;
+    }
+
+    public void isWithSales(boolean isWithSales) {
+        pbisWithSales = isWithSales;
     }
 
     public void isSerializeInventory(boolean isSerializeInveotry) {
@@ -837,6 +842,9 @@ public class InventoryBrowse {
         }
 
         lsSQL = MiscUtil.addCondition(lsSQL, "a.cSoldStat = '0' ");
+        if (pbisWithSales) {
+            lsSQL = lsSQL + " AND sSerialID NOT IN (" + getSQ_BrowseSalesStock() + ")";
+        }
         //default
         String lscolHeader = "ID»Description»Serial 01»Serial 02»Branch Name";
         String lscolName = "sSerialID»xDescript»sSerial01»sSerial02»xBranchNm";
@@ -1552,5 +1560,14 @@ public class InventoryBrowse {
                 + "  LEFT JOIN Branch bc ON bb.sBranchCd = bc.sBranchCd";
 //                + "         ORDER BY xSerialNme DESC, sBarcodex ASC, nQtyOnHnd DESC";
         return lsSQL;
+    }
+
+    public String getSQ_BrowseSalesStock() {
+        return "SELECT cb.sSerialID"
+                + " FROM Sales_Master ca"
+                + " LEFT JOIN Sales_Detail cb ON ca.sTransNox = cb.sTransNox"
+                + " WHERE ca.cTranStat IN ('0','1','2','6')"
+                + " AND cb.sSerialID IS NOT NULL"
+                + " AND cb.sSerialID <> ''";
     }
 }
