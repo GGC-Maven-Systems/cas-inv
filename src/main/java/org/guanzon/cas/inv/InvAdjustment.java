@@ -822,7 +822,8 @@ public class InvAdjustment extends Transaction {
         poJSON = new JSONObject();
         Category object = new ParamControllers(poGRider, logwrapr).Category();
         object.setRecordStatus(RecordStatus.ACTIVE);
-        String lsSQL = MiscUtil.addCondition(object.getSQ_Browse(),  " a.sIndstCdx = " + SQLUtil.toSQL(Master().getIndustryCode()));
+//        String lsSQL = MiscUtil.addCondition(object.getSQ_Browse(),  " a.sIndstCdx = " + SQLUtil.toSQL(Master().getIndustryCode()));
+        String lsSQL = object.getSQ_Browse();
         System.out.println("Executing SQL: " + lsSQL);
         poJSON = ShowDialogFX.Browse(poGRider,
                 lsSQL,
@@ -885,6 +886,7 @@ public class InvAdjustment extends Transaction {
                 
                 Detail(row).setStockId(object.getModel().getStockId());
                 Detail(row).isSerialized(object.getModel().isSerialized());
+                Detail(row).setInventoryCost(object.getModel().getCost().doubleValue());
                 
             }
             
