@@ -43,6 +43,14 @@ import java.util.logging.Logger;
 import java.util.stream.Collectors;
 import org.guanzon.cas.inv.services.InvControllers;
 import org.guanzon.cas.inv.status.InvAdjustmentStatus;
+import org.guanzon.cas.tbjhandler.TBJEntry;
+import org.guanzon.cas.tbjhandler.TBJTransaction;
+import org.json.simple.JSONArray;
+import ph.com.guanzongroup.cas.cashflow.Journal;
+import ph.com.guanzongroup.cas.cashflow.model.Model_Journal_Master;
+import ph.com.guanzongroup.cas.cashflow.services.CashflowControllers;
+import ph.com.guanzongroup.cas.cashflow.services.CashflowModels;
+import ph.com.guanzongroup.cas.cashflow.status.JournalStatus;
 
 public class InvAdjustment extends Transaction {
     public String psCompanyId = "";
@@ -50,7 +58,6 @@ public class InvAdjustment extends Transaction {
     public String psCategoryId = "";
     public String psApprover = "";
 
-    Model_Company poCompany;
     List<TransactionAttachment> paAttachments;
     List<Model_Inv_Adjustment_Serial> paSerial;
     public List<InvAdjustment> paMaster;
@@ -76,33 +83,6 @@ public class InvAdjustment extends Transaction {
     public void setCompanyId(String companyId) { psCompanyId = companyId; }
     public void setIndustryId(String industryId) { psIndustryId = industryId; }
     public void setCategoryId(String categoryId) { psCategoryId = categoryId; }
-
-    public Model_Company Company() throws SQLException, GuanzonException {
-        if (poCompany == null) {
-            poCompany = new ParamModels(poGRider).Company();
-        }
-
-        String id = poGRider.getCompnyId();
-
-        if (!"".equals(id)) {
-            if (poCompany.getEditMode() == EditMode.READY
-                    && poCompany.getCompanyId().equals(id)) {
-                return poCompany;
-            } else {
-                poJSON = poCompany.openRecord(id);
-
-                if ("success".equals(poJSON.get("result"))) {
-                    return poCompany;
-                } else {
-                    poCompany.initialize();
-                    return poCompany;
-                }
-            }
-        } else {
-            poCompany.initialize();
-            return poCompany;
-        }
-    }
 
     private JSONObject setJSON(String fsResult, String fsMessage) {
         JSONObject loJSON = new JSONObject();
@@ -469,7 +449,6 @@ public class InvAdjustment extends Transaction {
         //change status
         poGRider.beginTrans("UPDATE STATUS", "ConfirmTransaction", SOURCE_CODE, Master().getTransactionNo());
 
-
         //Update Inventory On Hand
         //Update the inventory for this Received Purchase
         InventoryTransaction loTrans = new InventoryTransaction(poGRider);
@@ -509,7 +488,11 @@ public class InvAdjustment extends Transaction {
         loTrans.saveTransaction();
 
         //Generate Journal
-
+        poJSON = generateJournal(lsStatus);
+        if (!isJSONSuccess(poJSON)) {
+            return poJSON;
+        }
+        
         //change status
         poJSON = statusChange(poMaster.getTable(), (String) poMaster.getValue("sTransNox"), "", lsStatus, false, true);
         if (!isJSONSuccess(poJSON)) {
@@ -600,6 +583,10 @@ public class InvAdjustment extends Transaction {
         loTrans.saveTransaction();
 
         //Update Generated Journal
+        poJSON = generateJournal(lsStatus);
+        if (!isJSONSuccess(poJSON)) {
+            return poJSON;
+        }
 
         //change status
         poJSON = statusChange(poMaster.getTable(), (String) poMaster.getValue("sTransNox"), "", lsStatus, false, true);
@@ -1104,6 +1091,138 @@ public class InvAdjustment extends Transaction {
         if(lsCondition != null && !"".equals(lsCondition)){
             SQL_BROWSE = MiscUtil.addCondition(SQL_BROWSE, lsCondition);
         }
+    }
+    
+    private JSONObject generateJournal(String fsStatus){
+        poJSON = new JSONObject();
+        try {
+            
+            Journal loJournal = new CashflowControllers(poGRider, logwrapr).Journal();
+            poJSON = loJournal.InitTransaction();
+            if(!isJSONSuccess(poJSON)){
+                return poJSON;
+            }
+            if(fsStatus.equals(InvAdjustmentStatus.CONFIRMED)){
+                poJSON = loJournal.NewTransaction();
+                if(!isJSONSuccess(poJSON)){
+                    return poJSON;
+                }
+                
+                //Retrieve TBJ
+                //retreiving using column index
+                JSONObject jsonmaster = new JSONObject();
+                for (int lnCtr = 1; lnCtr <= Master().getColumnCount(); lnCtr++){
+                    System.out.println(Master().getColumn(lnCtr) + " ->> " + Master().getValue(lnCtr));
+                    jsonmaster.put(Master().getColumn(lnCtr),  Master().getValue(lnCtr));
+                }
+                    
+                JSONArray jsondetails = new JSONArray();
+                JSONObject jsondetail = new JSONObject();
+                for (int lnCtr = 0; lnCtr <= Detail().size() - 1; lnCtr++){
+                    jsondetail = new JSONObject();
+                    for (int lnCol = 1; lnCol <= Detail(lnCtr).getColumnCount(); lnCol++){
+                        System.out.println(Detail(lnCtr).getColumn(lnCol) + " ->> " + Detail(lnCtr).getValue(lnCol));
+                        jsondetail.put(Detail(lnCtr).getColumn(lnCol),  Detail(lnCtr).getValue(lnCol));
+                    }
+                    jsondetails.add(jsondetail);
+                }
+
+                jsondetail = new JSONObject();
+                jsondetail.put("Inv_Adjustment_Master", jsonmaster);
+                jsondetail.put("Inv_Adjustment_Detail", jsondetails);
+                    
+                TBJTransaction tbj = new TBJTransaction(SOURCE_CODE,Master().getIndustryCode(), Master().getCategoryCode()); 
+                tbj.setGRiderCAS(poGRider);
+                tbj.setData(jsondetail);
+                jsonmaster = tbj.processRequest();
+                int lnRow = 0;
+                if(jsonmaster.get("result").toString().equalsIgnoreCase("success")){
+                    List<TBJEntry> xlist = tbj.getJournalEntries();
+                    for (TBJEntry xlist1 : xlist) {
+                        System.out.println("Account:" + xlist1.getAccount() );
+                        System.out.println("Debit:" + xlist1.getDebit());
+                        System.out.println("Credit:" + xlist1.getCredit());
+                        lnRow = loJournal.getDetailCount()-1;
+                        loJournal.Detail(lnRow).setForMonthOf(poGRider.getServerDate());
+                        loJournal.Detail(lnRow).setAccountCode(xlist1.getAccount());
+                        loJournal.Detail(lnRow).setCreditAmount(xlist1.getCredit());
+                        loJournal.Detail(lnRow).setDebitAmount(xlist1.getDebit());
+                        loJournal.AddDetail();
+                    }
+                } else {
+                    System.out.println(jsonmaster.toJSONString());
+                    return setJSON("error", jsonmaster.toJSONString());
+                }
+
+                //Journa Entry Master
+                loJournal.Master().setAccountPerId("");
+                loJournal.Master().setIndustryCode(Master().getIndustryCode());
+                loJournal.Master().setBranchCode(Master().getBranchCode());
+                loJournal.Master().setDepartmentId(poGRider.getDepartment());
+                loJournal.Master().setTransactionDate(poGRider.getServerDate()); 
+                loJournal.Master().setCompanyId(Master().getCompanyId());
+                loJournal.Master().setSourceCode(getSourceCode());
+                loJournal.Master().setSourceNo(Master().getTransactionNo());
+                
+                loJournal.setWithParent(true);
+                loJournal.setWithUI(false);
+                poJSON = loJournal.SaveTransaction();
+                if(!isJSONSuccess(poJSON)){
+                    return poJSON;
+                }
+                
+            } else {
+                //Cancel the generated Journal
+                String lsJournalTransNo = getJournalTransNo();
+                if(checkNotEmpty(lsJournalTransNo)){
+                    poJSON = loJournal.OpenTransaction(lsJournalTransNo);
+                    if(!isJSONSuccess(poJSON)){
+                        return poJSON;
+                    }
+
+                    loJournal.setWithParent(true);
+                    loJournal.setWithUI(false);
+                    poJSON = loJournal.CancelTransaction("CancelTransaction");
+                    if(!isJSONSuccess(poJSON)){
+                        return poJSON;
+                    }
+                }
+            }
+            
+        } catch (SQLException | GuanzonException | ScriptException | CloneNotSupportedException | ParseException ex) {
+            Logger.getLogger(getClass().getName()).log(Level.SEVERE, MiscUtil.getException(ex), ex);
+            return setJSON("error", MiscUtil.getException(ex));
+        } 
+            
+        return poJSON;
+    }
+    
+    private String getJournalTransNo(){
+        String lsTransNo = "";
+        try {
+            Model_Journal_Master loObj = new CashflowModels(poGRider).Journal_Master();
+            String lsSQL = MiscUtil.addCondition(MiscUtil.makeSelect(loObj),
+                            " sSourceNo = " + SQLUtil.toSQL(Master().getTransactionNo())
+                            + " AND sSourceCD = " + SQLUtil.toSQL(getSourceCode())
+                            + " AND sIndstCdx = " + SQLUtil.toSQL(Master().getIndustryCode())
+                            + " AND sCompnyCd = " + SQLUtil.toSQL(Master().getCompanyId())
+                            + " AND cTranStat != " + SQLUtil.toSQL(JournalStatus.CANCELLED)
+                            + " AND cTranStat != " + SQLUtil.toSQL(JournalStatus.VOID)
+            );
+            System.out.println("Executing SQL: " + lsSQL);
+            ResultSet loRS = poGRider.executeQuery(lsSQL);
+                if (MiscUtil.RecordCount(loRS) > 0) {
+                    if(loRS.next()){
+                        lsTransNo = loRS.getString("sTransNox");
+                    }
+                }
+            MiscUtil.close(loRS);
+        } catch (SQLException ex) {
+            System.out.println("No record loaded.");
+            Logger.getLogger(getClass().getName()).log(Level.SEVERE, MiscUtil.getException(ex), ex);
+        }
+
+        return lsTransNo;
     }
 
     private TransactionAttachment TransactionAttachment() throws SQLException, GuanzonException {

@@ -1,11 +1,9 @@
 package org.guanzon.cas.inv.model;
 
 import org.guanzon.appdriver.agent.services.Model;
-import org.guanzon.appdriver.agent.services.ReferenceCache;
 import org.guanzon.appdriver.base.GuanzonException;
 import org.guanzon.appdriver.base.MiscUtil;
 import org.guanzon.appdriver.constant.EditMode;
-import org.guanzon.cas.inv.services.InvModels;
 import org.guanzon.cas.parameter.model.*;
 import org.guanzon.cas.parameter.services.ParamModels;
 import org.json.simple.JSONObject;
@@ -14,9 +12,12 @@ import java.sql.SQLException;
 import java.util.Date;
 
 public class Model_Inv_Adjustment_Master extends Model {
+    
+    Model_Company poCompany;
     Model_Branch poBranch;
     Model_Industry poIndustry;
     Model_Category poCategory;
+    
     @Override
     public void initialize() {
         try {
@@ -53,6 +54,14 @@ public class Model_Inv_Adjustment_Master extends Model {
 
     public String getTransactionNo() {
         return (String) getValue("sTransNox");
+    }
+
+    public JSONObject setCompanyId(String companyId) {
+        return setValue("sCompnyID", companyId);
+    }
+
+    public String getCompanyId() {
+        return (String) getValue("sCompnyID");
     }
 
     public JSONObject setIndustryCode(String industryCode) {
@@ -148,6 +157,33 @@ public class Model_Inv_Adjustment_Master extends Model {
         return MiscUtil.getNextCode(getTable(), ID, true, poGRider.getGConnection().getConnection(), poGRider.getBranchCode());
     }
 
+    public Model_Company Company() throws SQLException, GuanzonException {
+        if (poCompany == null) {
+            poCompany = new ParamModels(poGRider).Company();
+        }
+
+        String id = (String) (getValue("sCompnyID") == null ? "" : getValue("sCompnyID"));
+
+        if (!"".equals(id)) {
+            if (poCompany.getEditMode() == EditMode.READY
+                    && poCompany.getCompanyId().equals(id)) {
+                return poCompany;
+            } else {
+                poJSON = poCompany.openRecord(id);
+
+                if ("success".equals(poJSON.get("result"))) {
+                    return poCompany;
+                } else {
+                    poCompany.initialize();
+                    return poCompany;
+                }
+            }
+        } else {
+            poCompany.initialize();
+            return poCompany;
+        }
+    }
+    
     public Model_Branch Branch() throws SQLException, GuanzonException {
         if (poBranch == null) {
             poBranch = new ParamModels(poGRider).Branch();
