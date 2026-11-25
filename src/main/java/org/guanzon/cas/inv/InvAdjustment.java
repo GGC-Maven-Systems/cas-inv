@@ -822,14 +822,14 @@ public class InvAdjustment extends Transaction {
         poJSON = new JSONObject();
         Category object = new ParamControllers(poGRider, logwrapr).Category();
         object.setRecordStatus(RecordStatus.ACTIVE);
-        String lsSQL = MiscUtil.addCondition(object.getSQ_Browse(),  " sIndstCdx = " + SQLUtil.toSQL(Master().getIndustryCode()));
+        String lsSQL = MiscUtil.addCondition(object.getSQ_Browse(),  " a.sIndstCdx = " + SQLUtil.toSQL(Master().getIndustryCode()));
         System.out.println("Executing SQL: " + lsSQL);
         poJSON = ShowDialogFX.Browse(poGRider,
                 lsSQL,
                 value,
                 "Category ID»Description",
                 "sCategrCd»sDescript",
-                "sCategrCd»sDescript",
+                "a.sCategrCd»a.sDescript",
                 byCode ? 0 : 1);
 
         if (poJSON != null) {
@@ -837,6 +837,8 @@ public class InvAdjustment extends Transaction {
             if ("success".equals((String) poJSON.get("result"))) {
                 Master().setCategoryCode(object.getModel().getCategoryId());
             }
+            
+            System.out.println("Category : " + Master().Category().getDescription());
         } else {
             poJSON = new JSONObject();
             poJSON.put("result", "error");
