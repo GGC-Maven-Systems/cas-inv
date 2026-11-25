@@ -853,6 +853,7 @@ public class InvAdjustment extends Transaction {
         poJSON.put("row", row);
         
         Inventory object = new InvControllers(poGRider, logwrapr).Inventory();
+        object.setRecordStatus(RecordStatus.ACTIVE);
         String lsSQL = MiscUtil.addCondition(object.getSQ_Browse(), 
                                             " a.sCategCd1 = " + SQLUtil.toSQL(Master().getCategoryCode())
                                             + " AND a.sIndstCdx = " + SQLUtil.toSQL(Master().getIndustryCode())
