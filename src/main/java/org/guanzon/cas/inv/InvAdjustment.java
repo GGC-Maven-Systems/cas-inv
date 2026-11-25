@@ -43,6 +43,9 @@ import java.util.logging.Logger;
 import java.util.stream.Collectors;
 import org.guanzon.cas.inv.services.InvControllers;
 import org.guanzon.cas.inv.status.InvAdjustmentStatus;
+import org.guanzon.cas.parameter.Category;
+import org.guanzon.cas.parameter.CategoryLevel2;
+import org.guanzon.cas.parameter.services.ParamControllers;
 import org.guanzon.cas.tbjhandler.TBJEntry;
 import org.guanzon.cas.tbjhandler.TBJTransaction;
 import org.json.simple.JSONArray;
@@ -815,6 +818,121 @@ public class InvAdjustment extends Transaction {
             poJSON.put("message", "No record loaded.");
             return poJSON;
         }
+    }
+    
+    public JSONObject SearchCategory(String value, boolean byCode) throws SQLException, GuanzonException {
+        poJSON = new JSONObject();
+        Category object = new ParamControllers(poGRider, logwrapr).Category();
+        object.setRecordStatus(RecordStatus.ACTIVE);
+        String lsSQL = MiscUtil.addCondition(object.getSQ_Browse(),  " sIndstCdx = " + SQLUtil.toSQL(Master().getIndustryCode()));
+        System.out.println("Executing SQL: " + lsSQL);
+        poJSON = ShowDialogFX.Browse(poGRider,
+                lsSQL,
+                value,
+                "Category ID»Description",
+                "sCategrCd»sDescript",
+                "sCategrCd»sDescript",
+                byCode ? 0 : 1);
+
+        if (poJSON != null) {
+            poJSON = object.getModel().openRecord((String) poJSON.get("sCategrCd"));
+            if ("success".equals((String) poJSON.get("result"))) {
+                Master().setCategoryCode(object.getModel().getCategoryId());
+            }
+        } else {
+            poJSON = new JSONObject();
+            poJSON.put("result", "error");
+            poJSON.put("message", "No record loaded.");
+        }
+        
+        return poJSON;
+    }
+    
+    public JSONObject SearchInventory(String value, boolean byCode, int row) throws SQLException, GuanzonException {
+        poJSON = new JSONObject();
+        poJSON.put("row", row);
+        
+        Inventory object = new InvControllers(poGRider, logwrapr).Inventory();
+        String lsSQL = MiscUtil.addCondition(object.getSQ_Browse(), 
+                                            " a.sCategCd1 = " + SQLUtil.toSQL(Master().getCategoryCode())
+                                            + " AND a.sIndstCdx = " + SQLUtil.toSQL(Master().getIndustryCode())
+                                            );
+        
+        System.out.println("Executing SQL: " + lsSQL);
+        poJSON = ShowDialogFX.Browse(poGRider,
+                lsSQL,
+                value,
+                "Barcode»Description»Brand»Model»Variant»UOM",
+                "sBarCodex»sDescript»xBrandNme»xModelNme»xVrntName»xMeasurNm",
+                "a.sBarCodex»a.sDescript»IFNULL(b.sDescript, '')»IFNULL(c.sDescript, '')»IFNULL(f.sDescript, '')»IFNULL(e.sDescript, '')",
+                byCode ? 0 : 1);
+
+        if (poJSON != null) {
+            poJSON = object.getModel().openRecord((String) poJSON.get("sStockIDx"));
+            if ("success".equals((String) poJSON.get("result"))) {
+                JSONObject loJSON = checkExistingDetail(row,
+                        object.getModel().getStockId()
+                        );
+                if ("error".equals((String) loJSON.get("result"))) {
+                    if((boolean) loJSON.get("reverse")){
+                        return loJSON;
+                    } else {
+                        row = (int) loJSON.get("row");
+                        Detail(row).isReverse(true);
+                    }
+                }
+                
+                Detail(row).setStockId(object.getModel().getStockId());
+                Detail(row).isSerialized(object.getModel().isSerialized());
+                
+            }
+            
+            System.out.println("Barcode : " + Detail(row).Inventory().getBarCode());
+            System.out.println("Description : " + Detail(row).Inventory().getDescription());
+            
+        } else {
+            poJSON = new JSONObject();
+            poJSON.put("result", "error");
+            poJSON.put("message", "No record loaded.");
+        }
+        
+        poJSON.put("row", row);
+        return poJSON;
+    }
+    
+    public JSONObject checkExistingDetail(int row, String stockId){
+        JSONObject loJSON = new JSONObject();
+        loJSON.put("row", row);
+        if(stockId == null){
+            stockId = "";
+        }
+        int lnRow = 0;
+        for (int lnCtr = 0; lnCtr <= getDetailCount()- 1; lnCtr++) {
+            if(Detail(lnCtr).isReverse()){
+                lnRow++;
+            }
+            if (lnCtr != row) {
+                //Check Existing Stock Id
+                if(stockId.equals(Detail(lnCtr).getStockId())){
+                    if(Detail(lnCtr).isReverse()){
+                        loJSON.put("result", "error");
+                        loJSON.put("message", "Item already exists in the transaction detail at row "+lnRow+".");
+                        loJSON.put("reverse", true);
+                        loJSON.put("row", lnCtr);
+                        return loJSON;
+                    } else {
+                        loJSON.put("result", "error");
+                        loJSON.put("reverse", false);
+                        loJSON.put("row", lnCtr);
+                        return loJSON;
+                    }
+                }   
+            }
+        }
+        
+        loJSON.put("result", "success");
+        loJSON.put("message", "success");
+        return loJSON;
     }
 
     @Override
