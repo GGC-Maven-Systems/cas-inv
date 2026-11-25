@@ -900,6 +900,63 @@ public class InvAdjustment extends Transaction {
         return poJSON;
     }
     
+    public JSONObject SearchSerial(String fsValue, boolean fbIsSerail1, int fnEntryNo, int fnRow) throws SQLException, GuanzonException {
+        poJSON = new JSONObject();
+        poJSON.put("row", fnRow);
+        
+        String lsSQL = MiscUtil.addCondition(InvSerial_SQL(), " a.sStockIDx = " + SQLUtil.toSQL(Detail(fnEntryNo).getStockId()));
+        
+        if(Detail(fnEntryNo).getCreditQuantity() > 0.00){ //Add For a credit adjustment, only serials currently assigned to a branch other than the logged-in branch can be selected
+            //Serial not assigned in the current branch
+            lsSQL = lsSQL + " a.sBranchCd = " + SQLUtil.toSQL(Master().getBranchCode());
+        } else { //Debit Deduct For a debit adjustment, only serials currently assigned to the logged-in branch can be selected.
+            //Serial assigned in the current branch
+            lsSQL = lsSQL + " a.sBranchCd != " + SQLUtil.toSQL(Master().getBranchCode());
+        }
+        
+        String lsHeader = "Serial 1»Serial 2»Description»Brand»Model»Variant»Color"; //»Plate No»CS No
+        String lsColName = "sSerial01»sSerial02»sDescript»sBrandNme»sModelNme»sVarntNme»sColorNme"; //»sPlateNoP»sCStckrNo
+        String lsColCrit = "a.sSerial01»a.sSerial02»a.sDescript»IFNULL(d.sBrandNme, '')»IFNULL(e.sDescript, '')»IFNULL(f.sDescript, '')»IFNULL(g.sDescript, '')"; //»b.sPlateNoP»b.sCStckrNo
+        
+        System.out.println("Executing SQL: " + lsSQL);
+        poJSON = ShowDialogFX.Browse(poGRider,
+                lsSQL,
+                fsValue,
+                lsHeader,
+                lsColName,
+                lsColCrit,
+                fbIsSerail1 ? 0 : 1);
+
+        if (poJSON != null) {
+            String lsSerialId = (String) poJSON.get("sSerialID");
+            if(checkNotEmpty(lsSerialId)){
+                JSONObject loJSON = checkExistingSerial(fnRow,lsSerialId);
+                if ("error".equals((String) loJSON.get("result"))) {
+                    if((boolean) loJSON.get("reverse")){
+                        return loJSON;
+                    } else {
+                        fnRow = (int) loJSON.get("row");
+                        Serial(fnRow).isReverse(true);
+                    }
+                }
+                
+                Serial(fnRow).setSerialId(lsSerialId);
+                Serial(fnRow).setEntryNo(fnEntryNo);
+            }
+            
+            System.out.println("Serial 1 : " + Serial(fnRow).InventorySerial().getSerial01());
+            System.out.println("Serial 2 : " + Serial(fnRow).InventorySerial().getSerial02());
+            
+        } else {
+            poJSON = new JSONObject();
+            poJSON.put("result", "error");
+            poJSON.put("message", "No record loaded.");
+        }
+        
+        poJSON.put("row", fnRow);
+        return poJSON;
+    }
+    
     public JSONObject checkExistingDetail(int row, String stockId){
         JSONObject loJSON = new JSONObject();
         loJSON.put("row", row);
@@ -917,6 +974,41 @@ public class InvAdjustment extends Transaction {
                     if(Detail(lnCtr).isReverse()){
                         loJSON.put("result", "error");
                         loJSON.put("message", "Item already exists in the transaction detail at row "+lnRow+".");
+                        loJSON.put("reverse", true);
+                        loJSON.put("row", lnCtr);
+                        return loJSON;
+                    } else {
+                        loJSON.put("result", "error");
+                        loJSON.put("reverse", false);
+                        loJSON.put("row", lnCtr);
+                        return loJSON;
+                    }
+                }   
+            }
+        }
+        
+        loJSON.put("result", "success");
+        loJSON.put("message", "success");
+        return loJSON;
+    }
+    
+    public JSONObject checkExistingSerial(int row, String serialId){
+        JSONObject loJSON = new JSONObject();
+        loJSON.put("row", row);
+        if(serialId == null){
+            serialId = "";
+        }
+        int lnRow = 0;
+        for (int lnCtr = 0; lnCtr <= getSerialListCount()- 1; lnCtr++) {
+            if(Serial(lnCtr).isReverse()){
+                lnRow++;
+            }
+            if (lnCtr != row) {
+                //Check Existing Serial Id
+                if(serialId.equals(Serial(lnCtr).getSerialId())){
+                    if(Serial(lnCtr).isReverse()){
+                        loJSON.put("result", "error");
+                        loJSON.put("message", "Serial already exists in the serial detail at row "+lnRow+".");
                         loJSON.put("reverse", true);
                         loJSON.put("row", lnCtr);
                         return loJSON;
@@ -1209,6 +1301,32 @@ public class InvAdjustment extends Transaction {
         if(lsCondition != null && !"".equals(lsCondition)){
             SQL_BROWSE = MiscUtil.addCondition(SQL_BROWSE, lsCondition);
         }
+    }
+    
+    private String InvSerial_SQL(){
+        return " SELECT " +
+                "a.sSerialID " +
+                ", a.sStockIDx " +
+                ", a.sSerial01 " +
+                ", a.sSerial02 " +
+                ", a.cConditnx " +
+                ", a.sCompnyID " +
+                ", a.sBranchCd " +
+                ", a.cLocation " +
+                ", a.sWHouseID " +
+                ", b.sCStckrNo " +
+                ", b.sPlateNoP " +
+                ", c.sDescript " +
+                ", d.sDescript AS sBrandNme " +
+                ", e.sDescript AS sModelNme " +
+                ", f.sDescript AS sVarntNme " +
+                "FROM Inv_Serial a " +
+                "LEFT JOIN Inv_Serial_Registration b ON b.sSerialID = a.sSerialID " +
+                "LEFT JOIN Inventory c ON c.sStockIDx = a.sStockIDx " +
+                "LEFT JOIN Brand d ON d.sBrandIDx = c.sBrandIDx " +
+                "LEFT JOIN Model e ON e.sModelIDx = c.sModelIDx " +
+                "LEFT JOIN Model_Variant f ON f.sVrntIDxx = c.sVrntIDxx " +
+                "LEFT JOIN Color g ON g.sColorIDx = c.sColorIDx ";
     }
     
     private JSONObject generateJournal(String fsStatus){
