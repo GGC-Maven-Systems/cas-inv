@@ -41,6 +41,8 @@ import java.util.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
+import org.guanzon.cas.inv.services.InvControllers;
+import org.guanzon.cas.inv.status.InvAdjustmentStatus;
 
 public class InvAdjustment extends Transaction {
     public String psCompanyId = "";
@@ -51,7 +53,7 @@ public class InvAdjustment extends Transaction {
     Model_Company poCompany;
     List<TransactionAttachment> paAttachments;
     List<Model_Inv_Adjustment_Serial> paSerial;
-    public List<Model> paMaster;
+    public List<InvAdjustment> paMaster;
 
     public JSONObject InitTransaction() throws SQLException, GuanzonException {
         SOURCE_CODE = "IAdj";
@@ -162,21 +164,14 @@ public class InvAdjustment extends Transaction {
             case InvAdjustmentStatus.CANCELLED:
                 return "Cancelled";
             case InvAdjustmentStatus.CONFIRMED:
-                return "Approved";
+                return "Confirmed";
             case InvAdjustmentStatus.OPEN:
                 return "Open";
             default:
                 return "Unknown";
         }
     }
-
-    public class InvAdjustmentStatus {
-        public static final String OPEN = "0";
-        public static final String CONFIRMED = "1";
-        public static final String CANCELLED = "2";
-        public static final String VOID = "3";
-    }
-
+    
     @Override
     public Model_Inv_Adjustment_Master Master() {
         return (Model_Inv_Adjustment_Master) poMaster;
@@ -188,7 +183,7 @@ public class InvAdjustment extends Transaction {
     }
     public JSONObject AddDetail() throws CloneNotSupportedException {
         if (getDetailCount() > 0) {
-            if ((Detail(getDetailCount() - 1).getStockId() == null || "".equals(Detail(getDetailCount() - 1).getStockId()))){
+            if (checkEmpty(Detail(getDetailCount() - 1).getStockId())){
                 poJSON = new JSONObject();
                 poJSON = setJSON("error", "Last row has empty item.");
                 return poJSON;
@@ -201,8 +196,8 @@ public class InvAdjustment extends Transaction {
     public void ReloadDetail() throws CloneNotSupportedException, SQLException, GuanzonException{
         int lnCtr = getDetailCount() - 1;
         while (lnCtr >= 0) {
-            if ((Detail(lnCtr).getStockId() == null || "".equals(Detail(lnCtr).getStockId()))
-                ) {
+            if (checkEmpty(Detail(lnCtr).getStockId())) {
+                removeSerialsOfEntry(lnCtr+1);
                 paDetail.remove(lnCtr);
             }
             lnCtr--;
@@ -210,7 +205,7 @@ public class InvAdjustment extends Transaction {
 
         if ((getDetailCount() - 1) >= 0) {
             if (
-                (Detail(getDetailCount() - 1).getStockId() != null && !"".equals(Detail(getDetailCount() - 1).getStockId()))
+                checkNotEmpty(Detail(getDetailCount() - 1).getStockId())
                 ) {
                 AddDetail();
             }
@@ -238,7 +233,7 @@ public class InvAdjustment extends Transaction {
 
     public JSONObject AddSerial() throws CloneNotSupportedException {
         if (getSerialListCount() > 0) {
-            if ((Serial(getSerialListCount() - 1).getSerialId() == null || "".equals(Serial(getSerialListCount() - 1).getSerialId()))){
+            if (checkEmpty(Serial(getSerialListCount() - 1).getSerialId())){
                 poJSON = new JSONObject();
                 poJSON = setJSON("error", "Last row has empty item.");
                 return poJSON;
@@ -257,17 +252,14 @@ public class InvAdjustment extends Transaction {
     public void ReloadSerial() throws CloneNotSupportedException, SQLException, GuanzonException{
         int lnCtr = getSerialListCount() - 1;
         while (lnCtr >= 0) {
-            if ((Serial(lnCtr).getSerialId() == null || "".equals(Serial(lnCtr).getSerialId()))
-            ) {
+            if (checkEmpty(Serial(lnCtr).getSerialId())) {
                 paSerial.remove(lnCtr);
             }
             lnCtr--;
         }
 
         if ((getSerialListCount() - 1) >= 0) {
-            if (
-                (Serial(getSerialListCount() - 1).getSerialId() != null && !"".equals(Serial(getSerialListCount() - 1).getSerialId()))
-            ) {
+            if (checkNotEmpty(Serial(getSerialListCount() - 1).getSerialId())) {
                 AddSerial();
             }
         }
@@ -316,11 +308,17 @@ public class InvAdjustment extends Transaction {
         return loJSON;
     }
 
-    private void removeSerialsOfEntry(int fnEntryNo) {
-        paSerial.removeIf(s -> s.getEntryNo() == fnEntryNo);
+    public void removeSerialsOfEntry(int fnEntryNo) {
+        paSerial.removeIf(s -> s.getEntryNo() == fnEntryNo && s.getEditMode() == EditMode.ADDNEW);
         for (Model_Inv_Adjustment_Serial loSerial : paSerial) {
-            if (loSerial.getEntryNo() > fnEntryNo) {
-                loSerial.setEntryNo(loSerial.getEntryNo() - 1);
+            if(loSerial.getEditMode() == EditMode.ADDNEW){
+                if (loSerial.getEntryNo() > fnEntryNo) {
+                    loSerial.setEntryNo(loSerial.getEntryNo() - 1);
+                }
+            } else {
+                if (loSerial.getEntryNo() == fnEntryNo) {
+                    loSerial.isReverse(true);
+                }
             }
         }
     }
@@ -667,8 +665,8 @@ public class InvAdjustment extends Transaction {
         return poJSON;
     }
 
-    public Model_Inv_Adjustment_Master TransactionList(int row) {
-        return (Model_Inv_Adjustment_Master) paMaster.get(row);
+    public InvAdjustment TransactionList(int row) {
+        return (InvAdjustment) paMaster.get(row);
     }
 
     public int getTransactionListCount() {
@@ -678,17 +676,24 @@ public class InvAdjustment extends Transaction {
         return paMaster.size();
     }
 
-    public JSONObject loadTransactionList(String fsTransactionNo, String fsBranch) throws SQLException, GuanzonException {
+    public JSONObject loadTransactionList(String fsTranRefNo, String fsCategory, Date fDateFrom, Date fDateTo, String fsStatus) throws SQLException, GuanzonException, ScriptException, CloneNotSupportedException {
         poJSON = new JSONObject();
         paMaster = new ArrayList<>();
 
         initSQL();
         String lsSQL = MiscUtil.addCondition(SQL_BROWSE,
                 " a.sIndstCdx = " + SQLUtil.toSQL(psIndustryId)
-                        + " AND a.sCategrCd = " + SQLUtil.toSQL(psCategoryId)
-                        + " AND b.sBranchCd = " + SQLUtil.toSQL(fsBranch)
-                        + " AND a.sTransNox LIKE " + SQLUtil.toSQL("%" + fsTransactionNo + "%")
+                        + " AND a.sCategrCd LIKE " + SQLUtil.toSQL(fsCategory)
+                        + " AND a.dTransact >= " + SQLUtil.toSQL(xsDateShort(fDateFrom))
+                        + " AND a.dTransact <= " + SQLUtil.toSQL(xsDateShort(fDateTo))
+                        + " AND ( a.sTransNox LIKE " + SQLUtil.toSQL("%" + fsTranRefNo + "%")
+                        + " OR a.sReferNox LIKE " + SQLUtil.toSQL("%" + fsTranRefNo + "%")
+                        + " ) "
         );
+        
+        if(checkNotEmpty(fsStatus)){
+            lsSQL = lsSQL + " AND a.cTranStat = " + SQLUtil.toSQL(fsStatus);
+        }
 
         lsSQL = lsSQL + " ORDER BY a.dTransact, a.sTransNox ASC ";
         System.out.println("Executing SQL: " + lsSQL);
@@ -699,10 +704,11 @@ public class InvAdjustment extends Transaction {
         }
 
         while (loRS.next()) {
-            Model_Inv_Adjustment_Master loObject = new InvModels(poGRider).InventoryAdjustmentMaster();
-            poJSON = loObject.openRecord(loRS.getString("sTransNox"));
+            InvAdjustment loObject = new InvControllers(poGRider,null).InventoryAdjustment();
+            loObject.InitTransaction();
+            poJSON = loObject.OpenTransaction(loRS.getString("sTransNox"));
             if (isJSONSuccess(poJSON)) {
-                paMaster.add((Model) loObject);
+                paMaster.add((InvAdjustment) loObject);
             } else {
                 return poJSON;
             }
@@ -713,14 +719,90 @@ public class InvAdjustment extends Transaction {
         poJSON.put("message", "success");
         return poJSON;
     }
+    
+    public Double getTransactionListTotalAdjustments(String fsStatus){
+        Double lnTotal = 0.00;
+        for(int lnRow = 0;lnRow < getTransactionListCount();lnRow++){
+            if(checkEmpty(fsStatus)){
+                lnTotal++;
+            } else {
+                if(fsStatus.equals(TransactionList(lnRow).Master().getTransactionStatus())){
+                    lnTotal++;
+                }
+            }
+        }
+        
+        return lnTotal;
+    }
+    
+    public Double getTransactionListTotalCreditQty(){
+        Double lnTotal = 0.00;
+        for(int lnRow = 0;lnRow < getTransactionListCount();lnRow++){
+            lnTotal += TransactionList(lnRow).getTotalCreditQty();
+        }
+        
+        return lnTotal;
+    }
+    
+    public Double getTransactionListTotalDebitQty(){
+        Double lnTotal = 0.00;
+        for(int lnRow = 0;lnRow < getTransactionListCount();lnRow++){
+            lnTotal += TransactionList(lnRow).getTotalDebitQty();
+        }
+        
+        return lnTotal;
+    }
+    
+    public Double getTotalCreditQty(){
+        Double lnTotal = 0.00;
+        for(int lnCtr = 0;lnCtr < getDetailCount();lnCtr++){
+            if(!Detail(lnCtr).isReverse()){
+                lnTotal += Detail(lnCtr).getCreditQuantity();
+            }
+        }
+        
+        return lnTotal;
+    }
+    
+    public Double getTotalDebitQty(){
+        Double lnTotal = 0.00;
+        for(int lnCtr = 0;lnCtr < getDetailCount();lnCtr++){
+            if(!Detail(lnCtr).isReverse()){
+                lnTotal += Detail(lnCtr).getDebitQuantity();
+            }
+        }
+        
+        return lnTotal;
+    }
+    
+    public Double getTotalCreditCost(){
+        Double lnTotal = 0.00;
+        for(int lnCtr = 0;lnCtr < getDetailCount();lnCtr++){
+            if(!Detail(lnCtr).isReverse()){
+                lnTotal += (Detail(lnCtr).getCreditQuantity() * Detail(lnCtr).getInventoryCost());
+            }
+        }
+        
+        return lnTotal;
+    }
+    
+    public Double getTotalDebitCost(){
+        Double lnTotal = 0.00;
+        for(int lnCtr = 0;lnCtr < getDetailCount();lnCtr++){
+            if(!Detail(lnCtr).isReverse()){
+                lnTotal += (Detail(lnCtr).getDebitQuantity() * Detail(lnCtr).getInventoryCost());
+            }
+        }
+        
+        return lnTotal;
+    }
 
     public JSONObject SearchTransaction(String fsValue, boolean fbByCode) throws CloneNotSupportedException, SQLException, GuanzonException, ScriptException{
         poJSON = new JSONObject();
 
         initSQL();
         String lsSQL = MiscUtil.addCondition(SQL_BROWSE,
-                " a.sIndstCdx = " + SQLUtil.toSQL(psIndustryId)
-                        + " AND a.sCategrCd = " + SQLUtil.toSQL(psCategoryId)
+                            " a.sIndstCdx = " + SQLUtil.toSQL(psIndustryId)
                         + " AND b.sBranchCd = " + SQLUtil.toSQL(poGRider.getBranchCode())
                     );
 
@@ -731,8 +813,8 @@ public class InvAdjustment extends Transaction {
                     lsSQL,
                     "",
                     "Transaction No»Transaction Date»Branch»Reference No",
-                    "sTransNox»dTransact»Branch»Reference", //TODO
-                    "a.sTransNox»a.dTransact»Branch»Reference" ,//TODO
+                    "sTransNox»dTransact»sBranchNm»sReferNox", 
+                    "a.sTransNox»a.dTransact»b.sBranchNm»a.sReferNox" ,
                     fbByCode ? 0 : 2);
         } else {
             poJSON.put("sTransNox", fsValue);
@@ -755,7 +837,6 @@ public class InvAdjustment extends Transaction {
         try {
             //Put initial model values here/
             Master().setIndustryCode(psIndustryId);
-            Master().setCategoryCode(psCategoryId);
             Master().setBranchCode(poGRider.getBranchCode());
             Date ldServerDate = poGRider.getServerDate();
             Master().setTransactionDate(SQLUtil.toDate(xsDateShort(ldServerDate), SQLUtil.FORMAT_SHORT_DATE));
@@ -822,6 +903,22 @@ public class InvAdjustment extends Transaction {
             Detail(lnCtr).setTransactionNo(Master().getTransactionNo());
             Detail(lnCtr).setEntryNo(lnCtr+1);
             Detail(lnCtr).setModifiedDate(poGRider.getServerDate());
+        }
+        
+        Iterator<Model_Inv_Adjustment_Serial> serial = SerialList().iterator();
+        while (serial.hasNext()) {
+            Model item = serial.next(); // Store the item before checking conditions
+            String lsDetail = (String) item.getValue("sSerialID");
+            if ((lsDetail == null || "".equals(lsDetail))) {
+                if(item.getEditMode() == EditMode.ADDNEW){
+                    serial.remove(); // Correctly remove the item
+                }
+            }
+        }
+
+        for (int lnCtr = 0; lnCtr < getSerialListCount(); lnCtr++) {
+            Serial(lnCtr).setTransactionNo(Master().getTransactionNo());
+            Serial(lnCtr).setModifiedDate(poGRider.getServerDate());
         }
 
         //check inv adjustment serial
@@ -919,6 +1016,18 @@ public class InvAdjustment extends Transaction {
     protected JSONObject saveOthers() {
         try {
             poJSON = new JSONObject();
+            
+            //Save Serial
+            for (int lnCtr = 0; lnCtr < getSerialListCount(); lnCtr++) {
+                Model_Inv_Adjustment_Serial loSerial = Serial(lnCtr);
+                if (loSerial.getEditMode() == EditMode.ADDNEW || loSerial.getEditMode() == EditMode.UPDATE) {
+                    loSerial.setModifiedDate(poGRider.getServerDate());
+                    poJSON = loSerial.saveRecord();
+                    if (!isJSONSuccess(poJSON)) {
+                        return poJSON;
+                    }
+                }
+            }
 
             //Save Attachments
             for (int lnCtr = 0; lnCtr <= getTransactionAttachmentCount() - 1; lnCtr++) {
@@ -966,38 +1075,32 @@ public class InvAdjustment extends Transaction {
             }
         }
 
-        SQL_BROWSE ="SELECT " +
-                " a.sTransNox, " +
-                " a.sIndstCdx, " +
-                " a.sCategrCd, " +
-                " a.dTransact, " +
-                " a.sClientID, " +
-                " a.sAddrssID, " +
-                " a.sContctID, " +
-                " a.nVersionx, " +
-                " a.cTranStat, " +
-                " a.sModified, " +
-                " a.dModified, " +
-                " c.sCompnyNm, " +
-                "     CASE  " +
-                "         WHEN a.cTranStat = '0'  " +
-                "         THEN 'OPEN'  " +
-                "         WHEN a.cTranStat = '1'  " +
-                "         THEN 'APPROVED'  " +
-                "         WHEN a.cTranStat = '2'  " +
-                "         THEN 'CANCELLED'  " +
-                "         WHEN a.cTranStat = '3'  " +
-                "         THEN 'VOIDED'  " +
-                "         ELSE 'UNKNOWN' " +
-                "     END AS xTranStat, " +
-                "  b.sVrntIDxx, " +
-                "  b.nSRPAmntx, " +
-                "  b.sModified," +
-                "  b.dModified " +
-                "FROM Sales_Quotation_Master a " +
-                "INNER JOIN Sales_Quotation_Vehicle b ON b.sTransNox = a.sTransNox " +
-                "LEFT JOIN Client_Master c ON c.sClientID = a.sClientID "+
-                "LEFT JOIN Sales_Inquiry_Master d ON d.sTransNox = b.sSourceNo ";
+        SQL_BROWSE ="  SELECT " +
+                    "  a.sTransNox " +
+                    ", a.sIndstCdx " +
+                    ", a.sCompnyID " +
+                    ", a.sBranchCd " +
+                    ", a.sCategrCd " +
+                    ", a.dTransact " +
+                    ", a.sReferNox " +
+                    ", a.sRemarksx " +
+                    ", a.cTranStat " +
+                    ", b.sBranchNm " +
+                    ", c.sDescript " +
+                    ",     CASE    " +
+                    "         WHEN a.cTranStat = '0'    " +
+                    "         THEN 'OPEN'    " +
+                    "         WHEN a.cTranStat = '1'    " +
+                    "         THEN 'CONFIRMED'    " +
+                    "         WHEN a.cTranStat = '2'    " +
+                    "         THEN 'CANCELLED'    " +
+                    "         WHEN a.cTranStat = '3'    " +
+                    "         THEN 'VOIDED'    " +
+                    "         ELSE 'UNKNOWN'   " +
+                    "     END AS xTranStat    " +
+                    " FROM Inv_Adjustment_Master a " +
+                    " LEFT JOIN Branch b ON b.sBranchCd = a.sBranchCd " +
+                    " LEFT JOIN Category c ON c.sCategrCd = a.sCategrCd ";
         if(lsCondition != null && !"".equals(lsCondition)){
             SQL_BROWSE = MiscUtil.addCondition(SQL_BROWSE, lsCondition);
         }
@@ -1427,7 +1530,7 @@ public class InvAdjustment extends Transaction {
                     crs.updateString("cRefrStat", "VOIDED");
                     break;
                 case InvAdjustmentStatus.CONFIRMED:
-                    crs.updateString("cRefrStat", "CLIENT CONFIRMED");
+                    crs.updateString("cRefrStat", "CONFIRMED");
                     break;
                 default:
                     char ch = crs.getString("cRefrStat").charAt(0);
@@ -1444,7 +1547,7 @@ public class InvAdjustment extends Transaction {
                             crs.updateString("cRefrStat", "VOIDED");
                             break;
                         case InvAdjustmentStatus.CONFIRMED:
-                            crs.updateString("cRefrStat", "CLIENT CONFIRMED");
+                            crs.updateString("cRefrStat", "CONFIRMED");
                             break;
                     }
             }

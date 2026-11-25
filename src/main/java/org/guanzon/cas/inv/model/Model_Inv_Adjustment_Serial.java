@@ -25,7 +25,7 @@ public class Model_Inv_Adjustment_Serial extends Model {
 
             poEntity.updateObject("nEntryNox", 0);
             poEntity.updateObject("dModified", poGRider.getServerDate());
-            poEntity.updateString("cReversex", "-");
+            poEntity.updateString("cReversex", "+");
 
             poEntity.insertRow();
             poEntity.moveToCurrentRow();
@@ -67,11 +67,11 @@ public class Model_Inv_Adjustment_Serial extends Model {
     }
 
     public JSONObject isReverse(boolean reverse) {
-        return setValue("cReversex", reverse ? "+" : "-");
+        return setValue("cReversex", reverse ? "-" : "+");
     }
 
     public boolean isReverse() {
-        return "+".equals(getValue("cReversex"));
+        return "-".equals(getValue("cReversex"));
     }
 
     public JSONObject setRemarks(String remarks) {
