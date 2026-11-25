@@ -66,12 +66,12 @@ public class Model_Inv_Adjustment_Serial extends Model {
         return (String) getValue("sSerialID");
     }
 
-    public JSONObject isReverse(boolean reverse) {
-        return setValue("cReversex", reverse ? "-" : "+");
+    public JSONObject isReverse(boolean isReverse) {
+        return setValue("cReversex", isReverse ? "+" : "-");
     }
 
     public boolean isReverse() {
-        return "-".equals(getValue("cReversex"));
+        return ((String) getValue("cReversex")).equals("+");
     }
 
     public JSONObject setRemarks(String remarks) {
