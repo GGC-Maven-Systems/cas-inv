@@ -32,6 +32,7 @@ public class Model_Inv_Adjustment_Detail extends Model {
             poEntity.updateString("cReversex", "+");
             poEntity.updateString("cSerialze", Logical.NO);
             poEntity.updateObject("dModified", poGRider.getServerDate());
+            poEntity.updateNull("dExpiryDt");
 
             poInventory = new InvModels(poGRider).Inventory();
 
@@ -39,8 +40,8 @@ public class Model_Inv_Adjustment_Detail extends Model {
             poEntity.moveToCurrentRow();
             poEntity.absolute(1);
 
-            ID = poEntity.getMetaData().getColumnLabel(1);  // sTransNox
-            ID2 = poEntity.getMetaData().getColumnLabel(2); // nEntryNox
+            ID = "sTransNox"; 
+            ID2 = "nEntryNox"; 
 
             pnEditMode = EditMode.UNKNOWN;
         } catch (SQLException e) {
@@ -136,7 +137,7 @@ public class Model_Inv_Adjustment_Detail extends Model {
     public boolean isSerialized() {
         return Logical.YES.equals(getValue("cSerialze"));
     }
-
+    
     public JSONObject setModifiedDate(Date modifiedDate) {
         return setValue("dModified", modifiedDate);
     }

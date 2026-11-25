@@ -360,22 +360,22 @@ public class InvAdjustment extends Transaction {
 
     private JSONObject loadInvAdjustmentSerial() throws SQLException, GuanzonException, CloneNotSupportedException{
         poJSON = new JSONObject();
-        paDetail = new ArrayList<>();
+        paSerial = new ArrayList<>();
 
         String sql = "SELECT nEntryNox, sSerialID FROM Inv_Adjustment_Serial "
                 + " WHERE sTransNox = " + SQLUtil.toSQL(Master().getTransactionNo())
                 + " ORDER BY nEntryNox, sSerialID ASC";
         ResultSet rs = this.poGRider.executeQuery(sql);
         while(rs.next()) {
-            Model_Inv_Adjustment_Detail loDetail = new InvModels(poGRider).InventoryAdjustmentDetail();
+            Model_Inv_Adjustment_Serial loDetail = new InvModels(poGRider).InventoryAdjustmentSerial();
             loDetail.initialize();
             poJSON = loDetail.openRecord( Master().getTransactionNo(), rs.getString("nEntryNox"), rs.getString("sSerialID"));
             if (!"success".equals((String)this.poJSON.get("result"))) {
-                poJSON.put("message", "Unable to open inventory adjustment detail record.");
+                poJSON.put("message", "Unable to open inventory adjustment serial record.");
                 return poJSON;
             }
 
-            paDetail.add(loDetail);
+            paSerial.add(loDetail);
         }
 
         poJSON.put("result", "success");
@@ -798,7 +798,6 @@ public class InvAdjustment extends Transaction {
 
         System.out.println("Executing SQL: " + lsSQL);
         if(pbWithUI){
-
             poJSON = ShowDialogFX.Browse(poGRider,
                     lsSQL,
                     "",
@@ -810,7 +809,6 @@ public class InvAdjustment extends Transaction {
             poJSON.put("sTransNox", fsValue);
         }
         if (poJSON != null) {
-
             return OpenTransaction((String) poJSON.get("sTransNox"));
         } else {
             poJSON = new JSONObject();
@@ -1081,10 +1079,10 @@ public class InvAdjustment extends Transaction {
         while (detail.hasNext()) {
             Model item = detail.next(); // Store the item before checking conditions
             String lsDetail = (String) item.getValue("sStockIDx");
-            int lnCreditQty = (int) item.getValue("nCredtQty");
-            int lnDebitQty = (int) item.getValue("nDebitQty");
+            String lnCreditQty = item.getValue("nCredtQty").toString();
+            String lnDebitQty = item.getValue("nDebitQty").toString(); //Double.valueOf(item.getValue("nDebitQty").toString());
             if ((lsDetail == null || "".equals(lsDetail))
-                || (lnCreditQty <= 0 && lnDebitQty <= 0)) {
+                || (Double.valueOf(lnDebitQty) <= 0.00 && Double.valueOf(lnCreditQty) <= 0.00)) {
                 if(item.getEditMode() == EditMode.ADDNEW){
                     detail.remove(); // Correctly remove the item
                 }
@@ -1120,24 +1118,26 @@ public class InvAdjustment extends Transaction {
 
         //check inv adjustment serial
         for (int lnRow = 0; lnRow < getDetailCount(); lnRow++) {
-            int lnEntryNo = Detail(lnRow).getEntryNo();
-            int lnCreditQty = (int) Math.round(Detail(lnRow).getCreditQuantity());
-            int lnDebitQty = (int) Math.round(Detail(lnRow).getDebitQuantity());
-            int lnCount = getSerialCount(lnEntryNo);
+            if(Detail(lnRow).isSerialized() && Detail(lnRow).isReverse()){
+                int lnEntryNo = Detail(lnRow).getEntryNo();
+                int lnCreditQty = (int) Math.round(Detail(lnRow).getCreditQuantity());
+                int lnDebitQty = (int) Math.round(Detail(lnRow).getDebitQuantity());
+                int lnCount = getSerialCount(lnEntryNo);
 
-            if(lnCreditQty > 0) {
-                if (lnCount != lnCreditQty) {
-                    poJSON.put("result", "error");
-                    poJSON.put("message", "Entry no. " + lnEntryNo + " requires " + lnCreditQty
-                            + " serial(s), but " + lnCount + " were entered.");
-                    return poJSON;
-                }
-            } else {
-                if (lnCount != lnDebitQty) {
-                    poJSON.put("result", "error");
-                    poJSON.put("message", "Entry no. " + lnEntryNo + " requires " + lnDebitQty
-                            + " serial(s), but " + lnCount + " were entered.");
-                    return poJSON;
+                if(lnCreditQty > 0) {
+                    if (lnCount != lnCreditQty) {
+                        poJSON.put("result", "error");
+                        poJSON.put("message", "Entry no. " + lnEntryNo + " requires " + lnCreditQty
+                                + " serial(s), but " + lnCount + " were entered.");
+                        return poJSON;
+                    }
+                } else {
+                    if (lnCount != lnDebitQty) {
+                        poJSON.put("result", "error");
+                        poJSON.put("message", "Entry no. " + lnEntryNo + " requires " + lnDebitQty
+                                + " serial(s), but " + lnCount + " were entered.");
+                        return poJSON;
+                    }
                 }
             }
         }
