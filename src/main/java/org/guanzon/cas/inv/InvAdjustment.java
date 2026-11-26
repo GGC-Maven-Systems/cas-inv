@@ -767,7 +767,8 @@ public class InvAdjustment extends Transaction {
         initSQL();
         String lsSQL = MiscUtil.addCondition(SQL_BROWSE,
                 " a.sIndstCdx = " + SQLUtil.toSQL(psIndustryId)
-                        + " AND c.sDescript LIKE " + SQLUtil.toSQL(fsCategory)
+                        + " AND a.sCompnyID = " + SQLUtil.toSQL(psCompanyId)
+                        + " AND b.sBranchCd = " + SQLUtil.toSQL(poGRider.getBranchCode())
                         + " AND a.dTransact >= " + SQLUtil.toSQL(xsDateShort(fDateFrom))
                         + " AND ( a.sTransNox LIKE " + SQLUtil.toSQL("%" + fsTranRefNo + "%")
                         + " OR a.sReferNox LIKE " + SQLUtil.toSQL("%" + fsTranRefNo + "%")
@@ -776,6 +777,10 @@ public class InvAdjustment extends Transaction {
         
         if(fDateTo != null){
             lsSQL = lsSQL + " AND a.dTransact <= " + SQLUtil.toSQL(xsDateShort(fDateTo));
+        }
+        
+        if(checkNotEmpty(fsCategory)){
+            lsSQL = lsSQL + " AND c.sDescript LIKE " + SQLUtil.toSQL(fsCategory);
         }
         
         if(checkNotEmpty(fsStatus)){
@@ -890,6 +895,7 @@ public class InvAdjustment extends Transaction {
         initSQL();
         String lsSQL = MiscUtil.addCondition(SQL_BROWSE,
                             " a.sIndstCdx = " + SQLUtil.toSQL(psIndustryId)
+                        + " AND a.sCompnyID = " + SQLUtil.toSQL(psCompanyId)
                         + " AND b.sBranchCd = " + SQLUtil.toSQL(poGRider.getBranchCode())
                     );
 
