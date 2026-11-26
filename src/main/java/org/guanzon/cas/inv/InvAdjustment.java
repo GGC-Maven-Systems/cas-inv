@@ -778,8 +778,8 @@ public class InvAdjustment extends Transaction {
         return poJSON;
     }
     
-    public Double getTransactionListTotalAdjustments(String fsStatus){
-        Double lnTotal = 0.00;
+    public int getTransactionListTotalAdjustments(String fsStatus){
+        int lnTotal = 0;
         for(int lnRow = 0;lnRow < getTransactionListCount();lnRow++){
             if(checkEmpty(fsStatus)){
                 lnTotal++;
