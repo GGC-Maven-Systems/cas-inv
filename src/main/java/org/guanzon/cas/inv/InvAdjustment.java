@@ -41,6 +41,7 @@ import java.util.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
+import org.guanzon.cas.inv.model.Model_Inv_Master;
 import org.guanzon.cas.inv.services.InvControllers;
 import org.guanzon.cas.inv.status.InvAdjustmentStatus;
 import org.guanzon.cas.parameter.Category;
@@ -822,14 +823,26 @@ public class InvAdjustment extends Transaction {
         poJSON = new JSONObject();
         Category object = new ParamControllers(poGRider, logwrapr).Category();
         object.setRecordStatus(RecordStatus.ACTIVE);
-//        String lsSQL = MiscUtil.addCondition(object.getSQ_Browse(),  " a.sIndstCdx = " + SQLUtil.toSQL(Master().getIndustryCode()));
-        String lsSQL = object.getSQ_Browse();
+        String lsSQL =  " SELECT a.sCategrCd " +
+                        " ,a.sIndstCdx " +
+                        " ,a.cRecdStat " +
+                        " ,a.sDescript AS sCategory " +
+                        " ,b.sDescript AS sIndustry " +
+                        " FROM Category a " +
+                        " LEFT JOIN Industry b ON b.sIndstCdx = a.sIndstCdx " +
+                        " WHERE a.sIndstCdx = b.sIndstCdx ";
+        lsSQL = MiscUtil.addCondition(lsSQL,
+                             " a.cRecdStat = " + SQLUtil.toSQL(RecordStatus.ACTIVE)
+                            + " AND ( a.sIndstCdx = " + SQLUtil.toSQL("09") //Mandatory get the general industry
+                            + " OR a.sIndstCdx = " + SQLUtil.toSQL(Master().getIndustryCode())
+                            + " ) "
+                    );
         System.out.println("Executing SQL: " + lsSQL);
         poJSON = ShowDialogFX.Browse(poGRider,
                 lsSQL,
                 value,
                 "Category ID»Description",
-                "sCategrCd»sDescript",
+                "sCategrCd»sCategory",
                 "a.sCategrCd»a.sDescript",
                 byCode ? 0 : 1);
 
@@ -853,20 +866,42 @@ public class InvAdjustment extends Transaction {
         poJSON = new JSONObject();
         poJSON.put("row", row);
         
+        if(checkEmpty(Master().getCategoryCode())){
+            poJSON = setJSON("error", "Category cannot be empty.");
+            poJSON.put("row", row);
+            return poJSON;
+        }
+        
         Inventory object = new InvControllers(poGRider, logwrapr).Inventory();
         object.setRecordStatus(RecordStatus.ACTIVE);
-        String lsSQL = MiscUtil.addCondition(object.getSQ_Browse(), 
-                                            " a.sCategCd1 = " + SQLUtil.toSQL(Master().getCategoryCode())
-                                            + " AND a.sIndstCdx = " + SQLUtil.toSQL(Master().getIndustryCode())
+        String lsSQL =  " SELECT a.sBranchCd " +
+                        ", a.sStockIDx " +
+                        ", b.sBarCodex " +
+                        ", b.sDescript " +
+                        ", a.nQtyOnHnd " +
+                        ", c.sDescript AS sBrandNme " +
+                        ", d.sDescript AS sModelNme " +
+                        ", e.sDescript AS sColorNme " +
+                        ", f.sDescript AS sVrntName " +
+                        "FROM Inv_Master a " +
+                        "LEFT JOIN Inventory b ON b.sStockIDx = a.sStockIDx " +
+                        "LEFT JOIN Brand c ON c.sBrandIDx = b.sBrandIDx  " +
+                        "LEFT JOIN Model d ON d.sModelIDx = b.sModelIDx  " +
+                        "LEFT JOIN Color e ON e.sColorIDx = b.sColorIDx " +
+                        "LEFT JOIN Model_Variant f ON f.sVrntIDxx = b.sVrntIDxx ";
+        
+        lsSQL = MiscUtil.addCondition(lsSQL, //Search via Inv Master
+                                            " b.sCategCd1 = " + SQLUtil.toSQL(Master().getCategoryCode())
+                                            + " AND a.sBranchCd = " + SQLUtil.toSQL(Master().getBranchCode())
                                             );
         
         System.out.println("Executing SQL: " + lsSQL);
         poJSON = ShowDialogFX.Browse(poGRider,
                 lsSQL,
                 value,
-                "Barcode»Description»Brand»Model»Variant»UOM",
-                "sBarCodex»sDescript»xBrandNme»xModelNme»xVrntName»xMeasurNm",
-                "a.sBarCodex»a.sDescript»IFNULL(b.sDescript, '')»IFNULL(c.sDescript, '')»IFNULL(f.sDescript, '')»IFNULL(e.sDescript, '')",
+                "Barcode»Description»Brand»Model»Variant»Color",
+                "sBarCodex»sDescript»sBrandNme»sModelNme»sVrntName»sColorNme",
+                "b.sBarCodex»b.sDescript»IFNULL(c.sDescript, '')»IFNULL(d.sDescript, '')»IFNULL(f.sDescript, '')»IFNULL(e.sDescript, '')",
                 byCode ? 0 : 1);
 
         if (poJSON != null) {
@@ -887,7 +922,6 @@ public class InvAdjustment extends Transaction {
                 Detail(row).setStockId(object.getModel().getStockId());
                 Detail(row).isSerialized(object.getModel().isSerialized());
                 Detail(row).setInventoryCost(object.getModel().getCost().doubleValue());
-                
             }
             
             System.out.println("Barcode : " + Detail(row).Inventory().getBarCode());
@@ -903,16 +937,43 @@ public class InvAdjustment extends Transaction {
         return poJSON;
     }
     
+    public JSONObject validateCredit(Double fdblCreditAmt, int fnRow){
+        poJSON = new JSONObject();
+        
+        if(checkEmpty(Detail(fnRow).getStockId())){
+            poJSON = setJSON("error", "Stock Id cannot be empty.");
+            poJSON.put("row", fnRow);
+            return poJSON;
+        }
+        
+        Model_Inv_Master loObj = new InvModels(poGRider).InventoryMaster();
+        loObj.initialize();
+        poJSON = loObj.openRecord(Detail(fnRow).getStockId());
+        if(!isJSONSuccess(poJSON)){
+            return poJSON;
+        }
+        
+        if(fdblCreditAmt > loObj.getQuantityOnHand()){
+            poJSON = setJSON("error", "Credit cannot be greater thant the quantity on hand.");
+            poJSON.put("row", fnRow);
+            return poJSON;
+        }
+        
+        poJSON = setJSON("success", "success");
+        poJSON.put("row", fnRow);
+        return poJSON;
+    }
+    
     public JSONObject SearchSerial(String fsValue, boolean fbIsSerail1, int fnEntryNo, int fnRow) throws SQLException, GuanzonException {
         poJSON = new JSONObject();
         poJSON.put("row", fnRow);
         
         String lsSQL = MiscUtil.addCondition(InvSerial_SQL(), " a.sStockIDx = " + SQLUtil.toSQL(Detail(fnEntryNo).getStockId()));
         
-        if(Detail(fnEntryNo).getCreditQuantity() > 0.00){ //Add For a credit adjustment, only serials currently assigned to a branch other than the logged-in branch can be selected
+        if(Detail(fnEntryNo).getCreditQuantity() > 0.00){ //only serials currently assigned to a branch can be selected
             //Serial not assigned in the current branch
             lsSQL = lsSQL + " a.sBranchCd = " + SQLUtil.toSQL(Master().getBranchCode());
-        } else { //Debit Deduct For a debit adjustment, only serials currently assigned to the logged-in branch can be selected.
+        } else { //only serials NOT currently assigned to the logged-in branch can be selected.
             //Serial assigned in the current branch
             lsSQL = lsSQL + " a.sBranchCd != " + SQLUtil.toSQL(Master().getBranchCode());
         }
@@ -1037,6 +1098,7 @@ public class InvAdjustment extends Transaction {
         try {
             //Put initial model values here/
             Master().setIndustryCode(psIndustryId);
+            Master().setCompanyId(psCompanyId);
             Master().setBranchCode(poGRider.getBranchCode());
             Date ldServerDate = poGRider.getServerDate();
             Master().setTransactionDate(SQLUtil.toDate(xsDateShort(ldServerDate), SQLUtil.FORMAT_SHORT_DATE));
