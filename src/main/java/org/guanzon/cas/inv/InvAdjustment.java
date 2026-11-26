@@ -747,7 +747,7 @@ public class InvAdjustment extends Transaction {
     public Double getTotalCreditQty(){
         Double lnTotal = 0.00;
         for(int lnCtr = 0;lnCtr < getDetailCount();lnCtr++){
-            if(!Detail(lnCtr).isReverse()){
+            if(Detail(lnCtr).isReverse()){
                 lnTotal += Detail(lnCtr).getCreditQuantity();
             }
         }
@@ -758,7 +758,7 @@ public class InvAdjustment extends Transaction {
     public Double getTotalDebitQty(){
         Double lnTotal = 0.00;
         for(int lnCtr = 0;lnCtr < getDetailCount();lnCtr++){
-            if(!Detail(lnCtr).isReverse()){
+            if(Detail(lnCtr).isReverse()){
                 lnTotal += Detail(lnCtr).getDebitQuantity();
             }
         }
@@ -769,7 +769,7 @@ public class InvAdjustment extends Transaction {
     public Double getTotalCreditCost(){
         Double lnTotal = 0.00;
         for(int lnCtr = 0;lnCtr < getDetailCount();lnCtr++){
-            if(!Detail(lnCtr).isReverse()){
+            if(Detail(lnCtr).isReverse()){
                 lnTotal += (Detail(lnCtr).getCreditQuantity() * Detail(lnCtr).getInventoryCost());
             }
         }
@@ -780,7 +780,7 @@ public class InvAdjustment extends Transaction {
     public Double getTotalDebitCost(){
         Double lnTotal = 0.00;
         for(int lnCtr = 0;lnCtr < getDetailCount();lnCtr++){
-            if(!Detail(lnCtr).isReverse()){
+            if(Detail(lnCtr).isReverse()){
                 lnTotal += (Detail(lnCtr).getDebitQuantity() * Detail(lnCtr).getInventoryCost());
             }
         }
@@ -967,10 +967,10 @@ public class InvAdjustment extends Transaction {
     public JSONObject SearchSerial(String fsValue, boolean fbIsSerail1, int fnEntryNo, int fnRow) throws SQLException, GuanzonException {
         poJSON = new JSONObject();
         poJSON.put("row", fnRow);
+        int lnDetailRow = fnEntryNo - 1;
+        String lsSQL = MiscUtil.addCondition(InvSerial_SQL(), " a.sStockIDx = " + SQLUtil.toSQL(Detail(lnDetailRow).getStockId()));
         
-        String lsSQL = MiscUtil.addCondition(InvSerial_SQL(), " a.sStockIDx = " + SQLUtil.toSQL(Detail(fnEntryNo).getStockId()));
-        
-        if(Detail(fnEntryNo).getCreditQuantity() > 0.00){ //only serials currently assigned to a branch can be selected
+        if(Detail(lnDetailRow).getCreditQuantity() > 0.00){ //only serials currently assigned to a branch can be selected
             //Serial not assigned in the current branch
             lsSQL = lsSQL + " a.sBranchCd = " + SQLUtil.toSQL(Master().getBranchCode());
         } else { //only serials NOT currently assigned to the logged-in branch can be selected.
@@ -1185,7 +1185,7 @@ public class InvAdjustment extends Transaction {
 
         //check inv adjustment serial
         for (int lnRow = 0; lnRow < getDetailCount(); lnRow++) {
-            if(Detail(lnRow).isSerialized() && Detail(lnRow).isReverse()){
+            if(Detail(lnRow).isSerialized() && !Detail(lnRow).isReverse()){
                 int lnEntryNo = Detail(lnRow).getEntryNo();
                 int lnCreditQty = (int) Math.round(Detail(lnRow).getCreditQuantity());
                 int lnDebitQty = (int) Math.round(Detail(lnRow).getDebitQuantity());

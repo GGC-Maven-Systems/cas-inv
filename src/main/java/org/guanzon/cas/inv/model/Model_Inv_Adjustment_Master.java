@@ -31,6 +31,7 @@ public class Model_Inv_Adjustment_Master extends Model {
             //assign default values
             poEntity.updateObject("nEntryNox", 0);
             poEntity.updateString("cTranStat", "0"); //OPEN
+            poEntity.updateObject("dTransact", poGRider.getServerDate());
             poEntity.updateObject("dModified", poGRider.getServerDate());
             //end - assign default values
 
