@@ -307,20 +307,32 @@ public class InvAdjustment extends Transaction {
         }
     }
 
-    public List<Model_Inv_Adjustment_Serial> getSerials(int fnEntryNo) {
+    public List<Model_Inv_Adjustment_Serial> getSerials(int fnEntryNo, boolean isAll) {
         List<Model_Inv_Adjustment_Serial> loList = new ArrayList<>();
         for (Model_Inv_Adjustment_Serial loSerial : paSerial) {
-            if (loSerial.getEntryNo() == fnEntryNo) {
-                loList.add(loSerial);
+            if(checkNotEmpty(loSerial.getSerialId())){
+                if (loSerial.getEntryNo() == fnEntryNo) {
+                    if(isAll){
+                        loList.add(loSerial);
+                    } else {
+                        if(loSerial.isReverse()){
+                            loList.add(loSerial);
+                        }
+                    }
+                }
             }
         }
         return loList;
     }
 
     public int getSerialCount(int fnEntryNo) {
-        return getSerials(fnEntryNo).size();
+        return getSerials(fnEntryNo, true).size();
     }
-    
+
+    public int getActiveSerialCount(int fnEntryNo) {
+        return getSerials(fnEntryNo, false).size();
+    }
+
     public JSONObject NewTransaction()
             throws CloneNotSupportedException, SQLException, GuanzonException {
         poJSON = new JSONObject();
@@ -462,32 +474,36 @@ public class InvAdjustment extends Transaction {
             String lsCondition  = "0";
             for (Model loDetail : paDetail) {
                 Model_Inv_Adjustment_Detail detail = (Model_Inv_Adjustment_Detail) loDetail;
-                lsCondition  = getInvMasterCondition(detail); //get Condition from Inv_Master
+                if(detail.isReverse()){
+                    lsCondition  = getInvMasterCondition(detail); //get Condition from Inv_Master
 
-                if(detail.isSerialized()){
-                    String lsStockIDx = detail.getStockId();
-                    List<Model_Inv_Adjustment_Serial> laSerial = paSerial.stream()
-                        .filter(p -> {
-                            try {
-                                if (p == null || p.InventorySerial() == null) {
-                                    return false;
+                    if(detail.isSerialized()){
+                        String lsStockIDx = detail.getStockId();
+                        List<Model_Inv_Adjustment_Serial> laSerial = paSerial.stream()
+                            .filter(p -> {
+                                try {
+                                    if (p == null || p.InventorySerial() == null) {
+                                        return false;
+                                    }
+                                    String lsSerialStock = p.InventorySerial().getStockId();
+                                    return lsSerialStock != null
+                                            && lsSerialStock.equalsIgnoreCase(lsStockIDx);
+                                } catch (SQLException | GuanzonException e) {
+                                    throw new RuntimeException(e);
                                 }
-                                String lsSerialStock = p.InventorySerial().getStockId();
-                                return lsSerialStock != null
-                                        && lsSerialStock.equalsIgnoreCase(lsStockIDx);
-                            } catch (SQLException | GuanzonException e) {
-                                throw new RuntimeException(e);
+                            })
+                            .collect(Collectors.toList());
+                        for(Model_Inv_Adjustment_Serial loSerial : laSerial) {
+                            if(loSerial.isReverse()){
+                                loTrans.addSerial((String)poMaster.getValue("sIndstCdx"), loSerial.getSerialId(), false, detail.getInventoryCost(), loSerial.InventorySerial().getLocation());
                             }
-                        })
-                        .collect(Collectors.toList());
-                    for(Model_Inv_Adjustment_Serial loSerial : laSerial) {
-                        loTrans.addSerial((String)poMaster.getValue("sIndstCdx"), loSerial.getSerialId(), false, detail.getInventoryCost(), loSerial.InventorySerial().getLocation());
-                    }
-                } else {
-                    if(detail.getCreditQuantity() > 0.00){
-                        loTrans.addDetail((String)poMaster.getValue("sIndstCdx"), detail.getStockId(), lsCondition, detail.getCreditQuantity(), 0, detail.getInventoryCost());
+                        }
                     } else {
-                        loTrans.addDetail((String)poMaster.getValue("sIndstCdx"), detail.getStockId(), lsCondition, detail.getDebitQuantity(), 0, detail.getInventoryCost());
+                        if(detail.getCreditQuantity() > 0.00){
+                            loTrans.addDetail((String)poMaster.getValue("sIndstCdx"), detail.getStockId(), lsCondition, detail.getCreditQuantity(), 0, detail.getInventoryCost());
+                        } else {
+                            loTrans.addDetail((String)poMaster.getValue("sIndstCdx"), detail.getStockId(), lsCondition, detail.getDebitQuantity(), 0, detail.getInventoryCost());
+                        }
                     }
                 }
             }
@@ -593,32 +609,36 @@ public class InvAdjustment extends Transaction {
             String lsCondition  = "0";
             for (Model loDetail : paDetail) {
                 Model_Inv_Adjustment_Detail detail = (Model_Inv_Adjustment_Detail) loDetail;
-                lsCondition  = getInvMasterCondition(detail); //get Condition from Inv_Master
+                if(detail.isReverse()){
+                    lsCondition  = getInvMasterCondition(detail); //get Condition from Inv_Master
 
-                if(detail.isSerialized()){
-                    String lsStockIDx = detail.getStockId();
-                    List<Model_Inv_Adjustment_Serial> laSerial = paSerial.stream()
-                        .filter(p -> {
-                            try {
-                                if (p == null || p.InventorySerial() == null) {
-                                    return false;
+                    if(detail.isSerialized()){
+                        String lsStockIDx = detail.getStockId();
+                        List<Model_Inv_Adjustment_Serial> laSerial = paSerial.stream()
+                            .filter(p -> {
+                                try {
+                                    if (p == null || p.InventorySerial() == null) {
+                                        return false;
+                                    }
+                                    String lsSerialStock = p.InventorySerial().getStockId();
+                                    return lsSerialStock != null
+                                            && lsSerialStock.equalsIgnoreCase(lsStockIDx);
+                                } catch (SQLException | GuanzonException e) {
+                                    throw new RuntimeException(e);
                                 }
-                                String lsSerialStock = p.InventorySerial().getStockId();
-                                return lsSerialStock != null
-                                        && lsSerialStock.equalsIgnoreCase(lsStockIDx);
-                            } catch (SQLException | GuanzonException e) {
-                                throw new RuntimeException(e);
+                            })
+                            .collect(Collectors.toList());
+                        for(Model_Inv_Adjustment_Serial loSerial : laSerial) {
+                            if(loSerial.isReverse()){
+                                loTrans.addSerial((String)poMaster.getValue("sIndstCdx"), loSerial.getSerialId(), false, detail.getInventoryCost(), loSerial.InventorySerial().getLocation());
                             }
-                        })
-                        .collect(Collectors.toList());
-                    for(Model_Inv_Adjustment_Serial loSerial : laSerial) {
-                        loTrans.addSerial((String)poMaster.getValue("sIndstCdx"), loSerial.getSerialId(), false, detail.getInventoryCost(), loSerial.InventorySerial().getLocation());
-                    }
-                } else {
-                    if(detail.getCreditQuantity() > 0.00){
-                        loTrans.addDetail((String)poMaster.getValue("sIndstCdx"), detail.getStockId(), lsCondition, detail.getCreditQuantity(), 0, detail.getInventoryCost());
+                        }
                     } else {
-                        loTrans.addDetail((String)poMaster.getValue("sIndstCdx"), detail.getStockId(), lsCondition, detail.getDebitQuantity(), 0, detail.getInventoryCost());
+                        if(detail.getCreditQuantity() > 0.00){
+                            loTrans.addDetail((String)poMaster.getValue("sIndstCdx"), detail.getStockId(), lsCondition, detail.getCreditQuantity(), 0, detail.getInventoryCost());
+                        } else {
+                            loTrans.addDetail((String)poMaster.getValue("sIndstCdx"), detail.getStockId(), lsCondition, detail.getDebitQuantity(), 0, detail.getInventoryCost());
+                        }
                     }
                 }
             }
@@ -1012,6 +1032,18 @@ public class InvAdjustment extends Transaction {
         poJSON = new JSONObject();
         poJSON.put("row", fnRow);
         int lnDetailRow = fnEntryNo - 1;
+        
+        Double ldblQty = Detail(lnDetailRow).getCreditQuantity();
+        if(Detail(lnDetailRow).getDebitQuantity() > 0.00){
+            ldblQty = Detail(lnDetailRow).getDebitQuantity() ;
+        } 
+        
+        if(getSerialCount(fnEntryNo) >= ldblQty){
+            poJSON = setJSON("error", "Serial list cannot be greater than the setted detail quantity.");
+            poJSON.put("row", fnRow);
+            return poJSON;
+        }
+        
         String lsSQL = MiscUtil.addCondition(InvSerial_SQL(), " a.sStockIDx = " + SQLUtil.toSQL(Detail(lnDetailRow).getStockId()));
         
         if(Detail(lnDetailRow).getCreditQuantity() > 0.00){ //only serials currently assigned to a branch can be selected
@@ -1193,10 +1225,34 @@ public class InvAdjustment extends Transaction {
             String lsDetail = (String) item.getValue("sStockIDx");
             String lnCreditQty = item.getValue("nCredtQty").toString();
             String lnDebitQty = item.getValue("nDebitQty").toString(); //Double.valueOf(item.getValue("nDebitQty").toString());
-            if ((lsDetail == null || "".equals(lsDetail))
-                || (Double.valueOf(lnDebitQty) <= 0.00 && Double.valueOf(lnCreditQty) <= 0.00)) {
+            String lnEntryNo = item.getValue("nEntryNox").toString();
+            String lsReverse = item.getValue("cReversex").toString();
+            if ((lsDetail == null || "".equals(lsDetail)) || (Double.valueOf(lnDebitQty) <= 0.00 && Double.valueOf(lnCreditQty) <= 0.00) || "-".equals(lsReverse)) {
                 if(item.getEditMode() == EditMode.ADDNEW){
                     detail.remove(); // Correctly remove the item
+                } else {
+                    //Set the original qty value of the deactivated entry no
+                    Model_Inv_Adjustment_Detail loObj = new InvModels(poGRider).InventoryAdjustmentDetail();
+                    loObj.initialize();
+                    poJSON = loObj.openRecord(Master().getTransactionNo(), lnEntryNo);
+                    if(!isJSONSuccess(poJSON)){
+                        return poJSON;
+                    }
+                    
+                    item.setValue("cReversex","-"); //deactivate the detail
+                    item.setValue("nDebitQty",loObj.getDebitQuantity());
+                    item.setValue("nCredtQty",loObj.getCreditQuantity());
+                    
+                    //remove the newly added serial linked to the current entry no
+                    int lnCtr = getSerialListCount() - 1;
+                    while (lnCtr >= 0) {
+                        if(Integer.valueOf(lnEntryNo) == Serial(lnCtr).getEntryNo()
+                            && Serial(lnCtr).getEditMode() == EditMode.ADDNEW) {
+                            paSerial.remove(lnCtr);
+                        }
+                        lnCtr--;
+                    }
+                    
                 }
             }
         }
@@ -1229,26 +1285,36 @@ public class InvAdjustment extends Transaction {
         }
 
         //check inv adjustment serial
+        int lnRowNum = 0;
         for (int lnRow = 0; lnRow < getDetailCount(); lnRow++) {
-            if(Detail(lnRow).isSerialized() && Detail(lnRow).isReverse()){
-                int lnEntryNo = Detail(lnRow).getEntryNo();
-                int lnCreditQty = (int) Math.round(Detail(lnRow).getCreditQuantity());
-                int lnDebitQty = (int) Math.round(Detail(lnRow).getDebitQuantity());
-                int lnCount = getSerialCount(lnEntryNo);
+            if(Detail(lnRow).isReverse()){
+                lnRowNum++;
+            
+                poJSON = validateCredit(Detail(lnRow).getCreditQuantity(), lnRow);
+                if(!isJSONSuccess(poJSON)){
+                    return poJSON;
+                }
+            
+                if(Detail(lnRow).isSerialized()){
+                    int lnEntryNo = Detail(lnRow).getEntryNo();
+                    int lnCreditQty = (int) Math.round(Detail(lnRow).getCreditQuantity());
+                    int lnDebitQty = (int) Math.round(Detail(lnRow).getDebitQuantity());
+                    int lnCount = getActiveSerialCount(lnEntryNo); //get all active serial only
 
-                if(lnCreditQty > 0) {
-                    if (lnCount != lnCreditQty) {
-                        poJSON.put("result", "error");
-                        poJSON.put("message", "Entry no. " + lnEntryNo + " requires " + lnCreditQty
-                                + " serial(s), but " + lnCount + " were entered.");
-                        return poJSON;
-                    }
-                } else {
-                    if (lnCount != lnDebitQty) {
-                        poJSON.put("result", "error");
-                        poJSON.put("message", "Entry no. " + lnEntryNo + " requires " + lnDebitQty
-                                + " serial(s), but " + lnCount + " were entered.");
-                        return poJSON;
+                    if(lnCreditQty > 0) {
+                        if (lnCount != lnCreditQty) {
+                            poJSON.put("result", "error");
+                            poJSON.put("message", "Entry no. " + lnRowNum + " requires " + lnCreditQty
+                                    + " serial(s), but " + lnCount + " were entered.");
+                            return poJSON;
+                        }
+                    } else {
+                        if (lnCount != lnDebitQty) {
+                            poJSON.put("result", "error");
+                            poJSON.put("message", "Entry no. " + lnRowNum + " requires " + lnDebitQty
+                                    + " serial(s), but " + lnCount + " were entered.");
+                            return poJSON;
+                        }
                     }
                 }
             }
