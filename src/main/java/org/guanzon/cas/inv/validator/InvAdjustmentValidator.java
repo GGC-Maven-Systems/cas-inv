@@ -155,13 +155,6 @@ public class InvAdjustmentValidator implements GValidator{
                                             + "./nPlease enter a value in only one of these fields.");
                     return poJSON;
                 }
-                if(loDetail.getInventoryCost() <= 0.00){
-                    poJSON.put("result", "error");
-                    poJSON.put("message", "Invalid cost."
-                                            + "at row : " + lnRow
-                                            + ".");
-                    return poJSON;
-                }
             }
         
         }

@@ -1,5 +1,11 @@
 package org.guanzon.cas.inv;
 
+import java.awt.Component;
+import java.awt.Container;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
 import org.guanzon.appdriver.agent.ShowDialogFX;
 import org.guanzon.appdriver.agent.services.Model;
 import org.guanzon.appdriver.agent.services.Transaction;
@@ -14,8 +20,6 @@ import org.guanzon.cas.inv.model.Model_Inv_Adjustment_Detail;
 import org.guanzon.cas.inv.model.Model_Inv_Adjustment_Master;
 import org.guanzon.cas.inv.model.Model_Inv_Adjustment_Serial;
 import org.guanzon.cas.inv.services.InvModels;
-import org.guanzon.cas.parameter.model.Model_Company;
-import org.guanzon.cas.parameter.services.ParamModels;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
@@ -41,12 +45,25 @@ import java.util.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
-import org.guanzon.cas.inv.model.Model_Inv_Master;
+import javafx.application.Platform;
+import javax.swing.JButton;
+import net.sf.jasperreports.engine.JREmptyDataSource;
+import net.sf.jasperreports.engine.JRException;
+import net.sf.jasperreports.engine.JasperCompileManager;
+import net.sf.jasperreports.engine.JasperFillManager;
+import net.sf.jasperreports.engine.JasperPrint;
+import net.sf.jasperreports.engine.JasperPrintManager;
+import net.sf.jasperreports.engine.JasperReport;
+import net.sf.jasperreports.engine.data.JRMapCollectionDataSource;
+import net.sf.jasperreports.swing.JRViewer;
+import net.sf.jasperreports.swing.JRViewerToolbar;
+import net.sf.jasperreports.view.JasperViewer;
+import org.guanzon.appdriver.agent.ShowMessageFX;
 import org.guanzon.cas.inv.services.InvControllers;
 import org.guanzon.cas.inv.status.InvAdjustmentStatus;
 import org.guanzon.cas.inv.validator.InvAdjustmentValidator;
 import org.guanzon.cas.parameter.Category;
-import org.guanzon.cas.parameter.CategoryLevel2;
+import org.guanzon.cas.parameter.model.Model_Branch;
 import org.guanzon.cas.parameter.services.ParamControllers;
 import org.guanzon.cas.tbjhandler.TBJEntry;
 import org.guanzon.cas.tbjhandler.TBJTransaction;
@@ -61,6 +78,7 @@ public class InvAdjustment extends Transaction {
     public String psCompanyId = "";
     public String psIndustryId = "";
     public String psCategoryId = "";
+    public String psCategory = "";
     public String psApprover = "";
 
     List<TransactionAttachment> paAttachments;
@@ -76,6 +94,7 @@ public class InvAdjustment extends Transaction {
         paMaster = new ArrayList<>();
         paSerial = new ArrayList<>();
         paAttachments = new ArrayList<>();
+        psCategory = "";
         psApprover = "";
         setApproving("");
         return initialize();
@@ -88,6 +107,8 @@ public class InvAdjustment extends Transaction {
     public void setCompanyId(String companyId) { psCompanyId = companyId; }
     public void setIndustryId(String industryId) { psIndustryId = industryId; }
     public void setCategoryId(String categoryId) { psCategoryId = categoryId; }
+    public void setCategory(String category) { psCategory = category; }
+    public String getCategory() { return psCategory;}
 
     private JSONObject setJSON(String fsResult, String fsMessage) {
         JSONObject loJSON = new JSONObject();
@@ -118,6 +139,7 @@ public class InvAdjustment extends Transaction {
         paMaster = new ArrayList<>();
         paSerial = new ArrayList<>();
         paAttachments = new ArrayList<>();
+        psCategory = "";
         psApprover = "";
         setApproving("");
     }
@@ -737,17 +759,24 @@ public class InvAdjustment extends Transaction {
     public JSONObject loadTransactionList(String fsTranRefNo, String fsCategory, Date fDateFrom, Date fDateTo, String fsStatus) throws SQLException, GuanzonException, ScriptException, CloneNotSupportedException {
         poJSON = new JSONObject();
         paMaster = new ArrayList<>();
+        
+        if(fDateFrom == null){
+            return setJSON("error", "Invalid from date.");
+        }
 
         initSQL();
         String lsSQL = MiscUtil.addCondition(SQL_BROWSE,
                 " a.sIndstCdx = " + SQLUtil.toSQL(psIndustryId)
-                        + " AND a.sCategrCd LIKE " + SQLUtil.toSQL(fsCategory)
+                        + " AND c.sDescript LIKE " + SQLUtil.toSQL(fsCategory)
                         + " AND a.dTransact >= " + SQLUtil.toSQL(xsDateShort(fDateFrom))
-                        + " AND a.dTransact <= " + SQLUtil.toSQL(xsDateShort(fDateTo))
                         + " AND ( a.sTransNox LIKE " + SQLUtil.toSQL("%" + fsTranRefNo + "%")
                         + " OR a.sReferNox LIKE " + SQLUtil.toSQL("%" + fsTranRefNo + "%")
                         + " ) "
         );
+        
+        if(fDateTo != null){
+            lsSQL = lsSQL + " AND a.dTransact <= " + SQLUtil.toSQL(xsDateShort(fDateTo));
+        }
         
         if(checkNotEmpty(fsStatus)){
             lsSQL = lsSQL + " AND a.cTranStat = " + SQLUtil.toSQL(fsStatus);
@@ -886,7 +915,7 @@ public class InvAdjustment extends Transaction {
         }
     }
     
-    public JSONObject SearchCategory(String value, boolean byCode) throws SQLException, GuanzonException {
+    public JSONObject SearchCategory(String value, boolean byCode, boolean fbIsSearch) throws SQLException, GuanzonException {
         poJSON = new JSONObject();
         Category object = new ParamControllers(poGRider, logwrapr).Category();
         object.setRecordStatus(RecordStatus.ACTIVE);
@@ -916,7 +945,11 @@ public class InvAdjustment extends Transaction {
         if (poJSON != null) {
             poJSON = object.getModel().openRecord((String) poJSON.get("sCategrCd"));
             if ("success".equals((String) poJSON.get("result"))) {
-                Master().setCategoryCode(object.getModel().getCategoryId());
+                if(fbIsSearch) {
+                    setCategory(object.getModel().getDescription());
+                } else {
+                    Master().setCategoryCode(object.getModel().getCategoryId());
+                }
             }
             
             System.out.println("Category : " + Master().Category().getDescription());
@@ -1988,7 +2021,652 @@ public class InvAdjustment extends Transaction {
         }
     }
 
+    public JSONObject printReport(boolean fbIsSummary)
+        throws CloneNotSupportedException, SQLException, GuanzonException {
 
+        poJSON = new JSONObject();
+        pbIsPrinted = false;
+
+//        try {
+//
+//            String jrxmlPath = System.getProperty("sys.default.path.config");
+//            if(fbIsSummary){
+//                jrxmlPath = jrxmlPath + "/Reports/InventoryAdjustmentSummary.jrxml";
+//            } else {
+//                jrxmlPath = jrxmlPath + "/Reports/InventoryAdjustmentDetail.jrxml";
+//            }
+//
+//
+//            JasperReport jasperReport = JasperCompileManager.compileReport(jrxmlPath);
+//            String lsWatermarkPath = System.getProperty("sys.default.path.config") + "/Reports/images/";
+//            JasperPrint finalPrint = null;
+//
+//            // ---------------------------------------------
+//            // Parameters
+//            // ---------------------------------------------
+//            Map<String, Object> parameters = new HashMap<>();
+//            
+//            if(fbIsSummary){
+//            
+//            
+//            } else {
+//            
+//            }
+//            parameters.put("sCarImage", lsCarImage);
+//            parameters.put("watermarkImagePath", lsWatermarkPath);
+//            parameters.put("sValidity",Master().getTransactionNo()+ "-"+ poGRider.getServerDate());
+//            parameters.put("sCompany",Company().getCompanyName().toUpperCase());
+//            String lsAddress = Company().getCompanyAddress();
+//            if (Company().TownCity().getDescription() != null && !"".equals(Company().TownCity().getDescription())) {
+//                lsAddress = lsAddress + " " + Company().TownCity().getDescription();
+//            }
+//
+//            if (Company().TownCity().Province().getDescription() != null
+//                    && !"".equals(Company().TownCity().Province().getDescription())) {
+//                lsAddress = lsAddress+ ", "+ Company().TownCity().Province().getDescription();
+//            }
+//
+//            parameters.put("sAddress",lsAddress.toUpperCase());
+//
+//            Model_Branch loModel = Branch();
+//            String lsBranchName = loModel.getBranchName();
+//            String lsBranchDesc = loModel.getDescription();
+//            String lsBranchAddress = loModel.getAddress();
+//            String lsEmail = BranchEmail();
+//            if (loModel.TownCity().getDescription() != null && !"".equals(loModel.TownCity().getDescription())) {
+//                lsBranchAddress = lsBranchAddress + " " + loModel.TownCity().getDescription();
+//            }
+//
+//            if (loModel.TownCity().Province().getDescription() != null && !"".equals(loModel.TownCity().Province().getDescription())) {
+//                lsBranchAddress = lsBranchAddress+ ", "+ loModel.TownCity().Province().getDescription();
+//            }
+//            String lsContact = loModel.getMobile();
+//            String lsLandLine = loModel.getLandLine();
+//            if(lsBranchName == null) { lsBranchName = "";}
+//            if(lsBranchDesc == null) { lsBranchDesc = "";}
+//            if(lsBranchAddress == null) { lsBranchAddress = "";}
+//            if(lsContact == null) { 
+//                lsContact = "";
+//            } else {
+//                if(!lsContact.isEmpty()){
+//                    lsContact = "Mobile : " + lsContact;
+//                }
+//            }
+//            if(lsLandLine == null) {
+//                lsLandLine = "";
+//            } else {
+//                if(!lsLandLine.isEmpty()){
+//                    lsContact = lsContact 
+//                                + "\nTel No : " + lsLandLine;
+//                }
+//            }
+//            if(lsEmail == null) {
+//                lsEmail = "";
+//            } else {
+//                if(!lsEmail.isEmpty()){
+//                    lsContact = lsContact + "\nEmail Address : " + lsEmail;
+//                } 
+//            }
+//
+//            parameters.put("sBranch",lsBranchName.toUpperCase());
+//            parameters.put("sBrandBranch",lsBranchName.toUpperCase());
+//            parameters.put("sBranchAddress",lsBranchAddress.toUpperCase());
+//            parameters.put("sBranchDesc",lsBranchDesc.toUpperCase());
+//            parameters.put("sContact",lsContact);
+//            parameters.put("sCarModel",Detail(0).ModelVariant().Model().Brand().getDescription().toUpperCase() + " " + Detail(0).Model().getDescription().toUpperCase());
+//            parameters.put("sColorPreference", Detail(0).ModelVariant().Color().getDescription().toUpperCase());
+//            parameters.put("validFrom",SQLUtil.dateFormat(Master().getTransactionDate(),SQLUtil.FORMAT_LONG_DATE));
+//            String lsToDate = "";
+//            if(Detail(0).getValidThruDate() == null){
+//                lsToDate = "Present";
+//            } else {
+//                lsToDate = SQLUtil.dateFormat(Detail(0).getValidThruDate(),SQLUtil.FORMAT_LONG_DATE);
+//            }
+//            parameters.put("validTo",lsToDate);
+//            parameters.put("nCoverageYear", Detail(0).getInsuranceYears());
+//            parameters.put("sTransactionNo",Master().getTransactionNo());
+//            parameters.put("sCustomerName",Master().Client().getCompanyName());
+//            parameters.put("sAddress", getFullAddress());
+//            parameters.put("sCustomerContact", Master().ClientMobile().getMobileNo());
+//            parameters.put("sEmail", Master().ClientEmail().getMailAddress());
+//            parameters.put("sReceivingMethod", Detail(0).getReceivingMethod());
+//            parameters.put("sLHBankRate", Detail(0).getRateValue());
+//            parameters.put("sRemarks", Detail(0).getRemarks());
+//            parameters.put("dDeliverySchedule", Detail(0).getExpectedDate());
+//            parameters.put("sConsultantPhone", getContact(Detail(0).SalesInquiry().getSalesMan(), false, false));
+//            parameters.put("sConsultantEmail", getEmail(Detail(0).SalesInquiry().getSalesMan(), false, false));
+//            parameters.put("sPreparedBySignature", "");
+//            parameters.put("sPreparedBy", Detail(0).SalesInquiry().SalesPerson().getFullName().toUpperCase());
+//            parameters.put("sApprovedBySignature", "");
+//    //        poJSON = getUpdateStatusBy(Master().getTransactionStatus());
+//            poJSON = getSalesSupervisor();
+//            if(!isJSONSuccess(poJSON)){
+//                ShowMessageFX.Warning(
+//                       null,
+//                       "Computerized Accounting System",
+//                       (String) poJSON.get("message")
+//               );
+//                return poJSON;
+//            }
+//            parameters.put("sApprovedBy", ((String) poJSON.get("sUpdateByx")).toUpperCase() );
+//
+//            Double ldblTotalAccessories = getOtherAddOnTotal() + Detail(0).getCHMOAmount();
+//            Double ldblTotalAddOns = ldblTotalAccessories + Detail(0).getLTOAmount() + Detail(0).getTPLAmount() + Detail(0).getComprehensiveAmount();
+//            Double ldblTotalDiscount = getTotalDiscount();
+//
+//            parameters.put("nTotalDiscount",     ldblTotalDiscount);       // TODO
+//            parameters.put("bShowTotalDiscount", ldblTotalDiscount > 0.00);   // TODO
+//            parameters.put("nInclusionTotal",0.00);
+//            parameters.put("nVehiclePrice",Detail(0).getSRPAmount());
+//            parameters.put("nAddOnTotal",ldblTotalAddOns);
+//            parameters.put("nAccessories",ldblTotalAccessories);
+//            parameters.put("nInsurance",Detail(0).getComprehensiveAmount());
+//            parameters.put("nTPL",Detail(0).getTPLAmount());
+//            parameters.put("nLTO",Detail(0).getLTOAmount());
+//            parameters.put("nTotalPackagePrice",Detail(0).getTotalAmount());
+//
+//            //Initial value
+//            parameters.put("nCashDiscount", 0.00); 
+//            parameters.put("nPODiscount", 0.00); 
+//            parameters.put("nIHDiscount", 0.00);
+//            parameters.put("nCashUnitPrice",0.00);
+//            parameters.put("nCashInsurance",0.00);
+//            parameters.put("nCashTPL",0.00);
+//            parameters.put("nCashLTO",0.00);
+//            parameters.put("nCashTotal",0.00);
+//            parameters.put("nPOUnitPrice",0.00);
+//            parameters.put("nPOTPL",0.00);
+//            parameters.put("nPOLTO",0.00);
+//            parameters.put("nPOTotal",0.00);
+//            parameters.put("nIHUUnitPrice",0.00);
+//            parameters.put("nIHUDownpayment",0.00);
+//            parameters.put("nIHUMonthly",0.00);
+//            parameters.put("nIHBankRate",0.00);
+//            parameters.put("nIHYears",0.00);
+//            parameters.put("bShowInHouse",       false);
+//            parameters.put("bShowCash",          false);
+//            parameters.put("bShowPurchaseOrder", false);
+//
+//            switch(Detail(0).getPaymentForm()){
+//                case VehicleQuotationStatus.PaymentForm.FINANCING: //Financing 
+//                    parameters.put("bShowInHouse",       true);
+//                    parameters.put("sMOP","Financing");
+//                    parameters.put("nIHUnitPrice",Detail(0).getSRPAmount());
+//                    parameters.put("nIHDownpayment",Detail(0).getDownPayment());
+//                    parameters.put("nIHYears",Detail(0).getDuration() / 12);
+//                    parameters.put("nIHMonthly",Detail(0).getGrossMonthlyInstallment());
+//                    parameters.put("nIHBankRate",Detail(0).getRateValue());
+//                    parameters.put("nIHDiscount", ldblTotalDiscount);
+//                break;
+//                case VehicleQuotationStatus.PaymentForm.PO: //PO
+//                    parameters.put("bShowPurchaseOrder", true);
+//                    parameters.put("sMOP","PO");
+//                    parameters.put("nPOUnitPrice",Detail(0).getSRPAmount());
+//                    parameters.put("nPOTPL",Detail(0).getTPLAmount());
+//                    parameters.put("nPOLTO",Detail(0).getLTOAmount());
+//                    parameters.put("nPOTotal",Detail(0).getTotalAmount());
+//                    parameters.put("nPODiscount", ldblTotalDiscount); 
+//                break;
+//                default: //Cash
+//                    parameters.put("bShowCash",          true);
+//                    parameters.put("sMOP","Cash");
+//                    parameters.put("nCashUnitPrice",Detail(0).getSRPAmount());
+//                    parameters.put("nCashInsurance",Detail(0).getComprehensiveAmount()); //TODO
+//                    parameters.put("nCashTPL",Detail(0).getTPLAmount());
+//                    parameters.put("nCashLTO",Detail(0).getLTOAmount());
+//                    parameters.put("nCashTotal",Detail(0).getTotalAmount());
+//                    parameters.put("nCashDiscount", ldblTotalDiscount); 
+//                break;
+//
+//            }
+//
+//            // ---------------------------------------------
+//            // Build data
+//            // ---------------------------------------------
+//            List<Map<String, Object>> laVehicleInfo = buildQuotationVehicleInfo();
+//            List<Map<String, ?>> vehicleInfo = new ArrayList<>(laVehicleInfo);
+//            List<Map<String, Object>> lAddOnList = buildQuotationAddOns(false);
+//            List<Map<String, ?>> addons = new ArrayList<>(lAddOnList);
+//            List<Map<String, Object>> lFreebiesList = buildQuotationFreebies();
+//            List<Map<String, ?>> freebies = new ArrayList<>(lFreebiesList);
+//            List<Map<String, Object>> lLockInInsuranceList = buildQuotationLockInInsurance();
+//            List<Map<String, ?>> lockIn = new ArrayList<>(lLockInInsuranceList);
+//
+//            // --- hand the rows to the report ---
+//            parameters.put("VehicleDataSource",    new JRMapCollectionDataSource((Collection) vehicleInfo));
+//            parameters.put("AddOnDataSource",    new JRMapCollectionDataSource((Collection) addons));
+//            parameters.put("InclusionDataSource", new JRMapCollectionDataSource((Collection) freebies));
+//            parameters.put("LockInDataSource", new JRMapCollectionDataSource((Collection) lockIn));
+
+            // ---------------------------------------------
+            // Generate JasperPrint
+            // ---------------------------------------------
+//
+//            JasperPrint currentPrint =
+//                    JasperFillManager.fillReport(
+//                            jasperReport,
+//                            parameters,
+//                            new JREmptyDataSource(1)
+//                    );
+
+            // ---------------------------------------------
+            // Combine reports
+            // ---------------------------------------------
+
+//            if (finalPrint == null) {
+//                finalPrint = currentPrint;
+//            } else {
+//
+//                finalPrint.getPages().addAll(
+//                        currentPrint.getPages()
+//                );
+//            }
+//
+//            // ---------------------------------------------
+//            // Display final report
+//            // ---------------------------------------------
+//
+//            if (finalPrint != null) {
+//                CustomJasperViewer viewer = new CustomJasperViewer(finalPrint);
+//                viewer.setVisible(true);
+//                viewer.addWindowListener(
+//                        new WindowAdapter() {
+//                            @Override
+//                            public void windowClosed(WindowEvent e) {
+//                                proceedAfterViewerClosed();
+//                            }
+//                        }
+//                );
+//            }
+//
+//        } catch (JRException | SQLException | GuanzonException ex) {
+//            poJSON.put("result", "error");
+//            poJSON.put("message","Transaction print aborted!");
+//            Logger.getLogger(getClass().getName())
+//                    .log(Level.SEVERE, MiscUtil.getException(ex), ex);
+//        }
+
+        return poJSON;
+    }
+    
+    private void proceedAfterViewerClosed() {
+        Platform.runLater(() -> {
+            System.out.println("SHOWED!!!!!!!!!!!");
+            if ("error".equals((String) poJSON.get("result"))) {
+                ShowMessageFX.Warning(null, "Computerized Accounting System",
+                        (String) poJSON.get("message"));
+            } else {
+                if (pbIsPrinted) {
+                    ShowMessageFX.Information(null, "Computerized Accounting System",
+                            "Vehicle Price List Printed Successfully");
+                } else {
+                    ShowMessageFX.Warning(null, "Computerized Accounting System",
+                            "Printing was canceled by the user.");
+                }
+            }
+        });
+    }
+
+    private boolean pbIsPrinted = false;
+    public class CustomJasperViewer extends JasperViewer {
+
+        public CustomJasperViewer(final JasperPrint jasperPrint) {
+            super(jasperPrint, false);
+            customizePrintButton(jasperPrint);
+        }
+
+        /* ---- toolbar patch ------------------------------------------ */
+        private JSONObject customizePrintButton(final JasperPrint jasperPrint) {
+
+            try {
+                JRViewer viewer = findJRViewer(this);
+                if (viewer == null) {
+                    poJSON.put("result", "error");
+                    poJSON.put("message", "JRViewer not found!");
+                    return poJSON;
+                }
+                for (int i = 0; i < viewer.getComponentCount(); i++) {
+                    if (viewer.getComponent(i) instanceof JRViewerToolbar) {
+
+                        JRViewerToolbar toolbar = (JRViewerToolbar) viewer.getComponent(i);
+
+                        for (int j = 0; j < toolbar.getComponentCount(); j++) {
+                            if (toolbar.getComponent(j) instanceof JButton) {
+
+                                final JButton button = (JButton) toolbar.getComponent(j);
+
+                                if ("Print".equals(button.getToolTipText())) {
+                                    /* remove existing handlers */
+                                    ActionListener[] old = button.getActionListeners();
+                                    for (int k = 0; k < old.length; k++) {
+                                        button.removeActionListener(old[k]);
+                                    }
+
+                                    /* add our own (anonymous inner‑class, not lambda) */
+                                    button.addActionListener(new ActionListener() {
+                                        @Override
+                                        public void actionPerformed(ActionEvent e) {
+                                            try {
+                                                pbIsPrinted = JasperPrintManager.printReport(jasperPrint, true);
+                                                if (pbIsPrinted) {
+                                                    CustomJasperViewer.this.dispose();
+                                                } else {
+                                                    poJSON.put("result", "error");
+                                                    poJSON.put("message",  "Printing was canceled by the user.");
+                                                }
+                                            } catch (JRException ex) {
+                                                poJSON.put("result", "error");
+                                                poJSON.put("message",  "Print Failed: " + ex.getMessage());
+                                                Logger.getLogger(getClass().getName()).log(Level.SEVERE,  ex.getMessage(), ex);
+                                            }
+                                        }
+                                    });
+                                } else {
+                                    // Disable all other buttons
+//                                    button.setEnabled(false);
+//                                    poJSON.put("result", "error");
+//                                    poJSON.put("message",  "Transaction print aborted!");
+                                }
+                            }
+                        }
+                        toolbar.revalidate();
+                        toolbar.repaint();
+                    }
+                }
+            } catch (Exception e) {
+                System.out.println("Error customizing print button: " + e.getMessage());
+                poJSON.put("result", "error");
+                poJSON.put("message", "Error customizing print button: " + e.getMessage());
+            }
+
+            return poJSON;
+        }
+
+        private JRViewer findJRViewer(Component parent) {
+            if (parent instanceof JRViewer) {
+                return (JRViewer) parent;
+            }
+            if (parent instanceof Container) {
+                Component[] comps = ((Container) parent).getComponents();
+                for (int i = 0; i < comps.length; i++) {
+                    JRViewer v = findJRViewer(comps[i]);
+                    if (v != null) {
+                        return v;
+                    }
+                }
+            }
+            return null;
+        }
+    }
+    
+//    private List<Map<String, Object>> buildQuotationAddOns(boolean isInclusions) {
+//        List<Map<String, Object>> rows = new ArrayList<>();
+//
+//        try{
+//            boolean lbHasLTO = false;
+//            boolean lbHasTPL = false;
+//            boolean lbHasComprehensive = false;
+//            for(int lnCtr = 0;lnCtr < getAddOnListCount();lnCtr++){
+//                if(checkEmpty(AddOnList(lnCtr).getAddOnId())){
+//                    continue;
+//                }
+//                
+//                String lsType = "Add On";
+//                String lsDescription = AddOnList(lnCtr).AddOnMaster().AddOnType().getAddTypeName();
+//                
+//                if(lsDescription.toUpperCase().contains(VehicleQuotationStatus.AddOnType.LTO)){
+//                    lbHasLTO = true;
+//                } else if(lsDescription.toUpperCase().contains(VehicleQuotationStatus.AddOnType.TPL)){
+//                    lbHasTPL = true;
+//                } else if(lsDescription.toUpperCase().contains(VehicleQuotationStatus.AddOnType.COMPREHENSIVE)){
+//                    lbHasComprehensive = true;
+//                }
+//                
+//                if(AddOnList(lnCtr).getAmount() <= 0.00 || !AddOnList(lnCtr).getRecordStatus()){
+//                    continue;
+//                }
+//                addAddOnList(rows
+//                        , lsType
+//                        , lsDescription
+//                        , AddOnList(lnCtr).getAmount()
+//                        , AddOnList(lnCtr).getQuantity()
+//                        , AddOnList(lnCtr).getTotalAmount()
+//                );
+//            }
+//            
+//            for(int lnCtr = 0;lnCtr < getFreebiesListCount();lnCtr++){
+//                if(checkEmpty(FreebiesList(lnCtr).getFreebieId())
+//                    || FreebiesList(lnCtr).getAmount() <= 0.00
+//                    || !FreebiesList(lnCtr).getRecordStatus()    
+//                    ){
+//                    continue;
+//                }
+//                String lsType = "Accessory";
+//                String lsDescription = FreebiesList(lnCtr).Freebie().getDescription();
+//                addAddOnList(rows
+//                        , lsType
+//                        , lsDescription
+//                        , FreebiesList(lnCtr).getAmount()
+//                        , FreebiesList(lnCtr).getQuantity()
+//                        , FreebiesList(lnCtr).getTotalAmount()
+//                );
+//            }
+//            
+//            for(int lnCtr = 0;lnCtr < getInclusionListCount();lnCtr++){
+//                if(checkEmpty(InclusionList(lnCtr).getInclusionId())
+//                    || InclusionList(lnCtr).getAmount() <= 0.00
+//                    || !InclusionList(lnCtr).getRecordStatus()
+//                    ){
+//                    continue;
+//                }
+//                String lsType = "Accessory";
+//                String lsDescription = InclusionList(lnCtr).Inclusion().getDescription();
+//                addAddOnList(rows
+//                        , lsType
+//                        , lsDescription
+//                        , InclusionList(lnCtr).getAmount()
+//                        , InclusionList(lnCtr).getQuantity()
+//                        , InclusionList(lnCtr).getTotalAmount()
+//                );
+//            }
+//            
+//            for(int lnCtr = 0;lnCtr < getSpecialRequestListCount();lnCtr++){
+//                if(checkEmpty(SpecialRequestList(lnCtr).getRequestDescription())
+//                    || SpecialRequestList(lnCtr).getAmount()<= 0.00
+//                    || !SpecialRequestList(lnCtr).getRecordStatus()
+//                    ){
+//                    continue;
+//                }
+//                String lsType = "Accessory";
+//                String lsDescription = SpecialRequestList(lnCtr).getRequestDescription();
+//                addAddOnList(rows
+//                        , lsType
+//                        , lsDescription
+//                        , SpecialRequestList(lnCtr).getAmount()
+//                        , SpecialRequestList(lnCtr).getQuantity()
+//                        , SpecialRequestList(lnCtr).getTotalAmount()
+//                );
+//            }
+//            
+//            if(Detail(0).getLTOAmount() > 0.00){
+//                if(!lbHasLTO){
+//                    addAddOnList(rows
+//                               , "Add On"
+//                               , VehicleQuotationStatus.AddOnType.LTO
+//                               , Detail(0).getLTOAmount()
+//                               , 1
+//                               , Detail(0).getLTOAmount()
+//                    );
+//                }
+//            }
+//            
+//            if(Detail(0).getTPLAmount() > 0.00){
+//                if(!lbHasTPL){
+//                    addAddOnList(rows
+//                               , "Add On"
+//                               , VehicleQuotationStatus.AddOnType.TPL
+//                               , Detail(0).getTPLAmount()
+//                               , 1
+//                               , Detail(0).getTPLAmount()
+//                    );
+//                }
+//            }
+//            
+//            if(Detail(0).getComprehensiveAmount()> 0.00){
+//                if(!lbHasComprehensive){
+//                    addAddOnList(rows
+//                               , "Add On"
+//                               , VehicleQuotationStatus.AddOnType.COMPREHENSIVE
+//                               , Detail(0).getComprehensiveAmount()
+//                               , 1
+//                               , Detail(0).getComprehensiveAmount()
+//                    );
+//                }
+//            }
+//            
+//            if(Detail(0).getCHMOAmount()> 0.00){
+//                if(!lbHasComprehensive){
+//                    addAddOnList(rows
+//                               , "Add On"
+//                               , "CHMO"
+//                               , Detail(0).getCHMOAmount()
+//                               , 1
+//                               , Detail(0).getCHMOAmount()
+//                    );
+//                }
+//            }
+//            
+//        } catch (SQLException | GuanzonException ex) {
+//            Logger.getLogger(VehicleQuotation.class.getName()).log(Level.SEVERE, null, ex);
+//        }
+//        return rows;
+//    }
+// 
+//    // Keys here MUST match the <field name="..."> values in the .jrxml exactly.
+//    private void addAddOnList(List<Map<String, Object>> rows
+//                                , String type
+//                                , String description
+//                                , Double amount
+//                                , int quantity
+//                                , Double total
+//                        ) {
+//        Map<String, Object> row = new LinkedHashMap<>();
+//        if(type == null){ type = "";}
+//        if(description == null){ description = "";}
+//        row.put("sType", type);
+//        row.put("sDescription", description.toUpperCase());
+//        row.put("nAmount", amount);
+//        row.put("nQuantity", quantity);
+//        row.put("nTotal", total);
+//        rows.add(row);
+//    }
+//    
+//    private List<Map<String, Object>> buildQuotationVehicleInfo() {
+//        List<Map<String, Object>> rows = new ArrayList<>();
+//
+//        try{
+//             addVehicleInfo(rows
+//                        , Detail(0).ModelVariant().Model().Brand().getDescription() + " " + Detail(0).ModelVariant().Model().getDescription()
+//                        , Detail(0).ModelVariant().getDescription()
+//                        , Detail(0).ModelVariant().Color().getDescription()
+//                        , Detail(0).ModelVariant().VariantInsurance().getTransmission()
+//                        , ""
+//                        , Detail(0).ModelVariant().getYearModel()
+//                        , Detail(0).getSRPAmount()
+//                );
+//        } catch (SQLException | GuanzonException ex) {
+//            Logger.getLogger(VehicleQuotation.class.getName()).log(Level.SEVERE, null, ex);
+//        }
+//        return rows;
+//    }
+// 
+//    // Keys here MUST match the <field name="..."> values in the .jrxml exactly.
+//    private void addVehicleInfo(List<Map<String, Object>> rows
+//                                , String sModel
+//                                , String sVariant
+//                                , String sColor
+//                                , String sTransmission
+//                                , String sFuelType
+//                                , int nYear
+//                                , Double nPrice
+//                        ) {
+//        Map<String, Object> row = new LinkedHashMap<>();
+//        if(sModel == null){ sModel = "";}
+//        if(sVariant == null){ sVariant = "";}
+//        if(sTransmission == null){ sTransmission = "";}
+//        if(sFuelType == null){ sFuelType = "";}
+//        row.put("sModel", sModel.toUpperCase());
+//        row.put("sVariant", sVariant.toUpperCase());
+//        row.put("sColor", sColor.toUpperCase());
+//        row.put("sTransmission", sTransmission.toUpperCase());
+//        row.put("sFuelType", sFuelType.toUpperCase());
+//        row.put("nYear", nYear);
+//        row.put("nPrice", nPrice);
+//        rows.add(row);
+//    }
+//    
+//    private List<Map<String, Object>> buildQuotationFreebies() {
+//        List<Map<String, Object>> rows = new ArrayList<>();
+//
+//        try{
+//            for(int lnCtr = 0;lnCtr < getAddOnListCount();lnCtr++){
+//                if(checkEmpty(AddOnList(lnCtr).getAddOnId()) 
+//                    || AddOnList(lnCtr).getAmount() > 0.00
+//                    || !AddOnList(lnCtr).getRecordStatus()){
+//                    continue;
+//                }
+//                
+//                addQuotationFreebies(rows
+//                        , AddOnList(lnCtr).AddOnMaster().AddOnType().getAddTypeName()
+//                        , AddOnList(lnCtr).getQuantity()
+//                );
+//            }
+//            for(int lnCtr = 0;lnCtr < getFreebiesListCount();lnCtr++){
+//                if(checkEmpty(FreebiesList(lnCtr).getFreebieId()) 
+//                    || FreebiesList(lnCtr).getAmount() > 0.00
+//                    || !FreebiesList(lnCtr).getRecordStatus()){
+//                    continue;
+//                }
+//                
+//                addQuotationFreebies(rows
+//                        , FreebiesList(lnCtr).Freebie().getDescription()
+//                        , FreebiesList(lnCtr).getQuantity()
+//                );
+//            }
+//            for(int lnCtr = 0;lnCtr < getInclusionListCount();lnCtr++){
+//                if(checkEmpty(InclusionList(lnCtr).getInclusionId()) 
+//                    || InclusionList(lnCtr).getAmount() > 0.00
+//                    || !InclusionList(lnCtr).getRecordStatus()    
+//                    ){
+//                    continue;
+//                }
+//                
+//                addQuotationFreebies(rows
+//                        , InclusionList(lnCtr).Inclusion().getDescription()
+//                        , InclusionList(lnCtr).getQuantity()
+//                );
+//            }
+//            
+//            for(int lnCtr = 0;lnCtr < getSpecialRequestListCount();lnCtr++){
+//                if(checkEmpty(SpecialRequestList(lnCtr).getRequestDescription())
+//                    || SpecialRequestList(lnCtr).getAmount() > 0.00
+//                    || !SpecialRequestList(lnCtr).getRecordStatus()
+//                    ){
+//                    continue;
+//                }
+//                
+//                addQuotationFreebies(rows
+//                        , SpecialRequestList(lnCtr).getRequestDescription()
+//                        , SpecialRequestList(lnCtr).getQuantity()
+//                );
+//            }
+//            
+//        } catch (SQLException | GuanzonException ex) {
+//            Logger.getLogger(VehicleQuotation.class.getName()).log(Level.SEVERE, null, ex);
+//        }
+//        return rows;
+//    }
+    
     public JSONObject getUpdateStatusBy(String fsStatus) throws SQLException, GuanzonException {
         String lsUpdateBy = "";
         String lsDate = "";
