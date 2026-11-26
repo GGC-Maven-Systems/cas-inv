@@ -44,6 +44,7 @@ import java.util.stream.Collectors;
 import org.guanzon.cas.inv.model.Model_Inv_Master;
 import org.guanzon.cas.inv.services.InvControllers;
 import org.guanzon.cas.inv.status.InvAdjustmentStatus;
+import org.guanzon.cas.inv.validator.InvAdjustmentValidator;
 import org.guanzon.cas.parameter.Category;
 import org.guanzon.cas.parameter.CategoryLevel2;
 import org.guanzon.cas.parameter.services.ParamControllers;
@@ -1190,14 +1191,11 @@ public class InvAdjustment extends Transaction {
 
     @Override
     protected JSONObject isEntryOkay(String status) {
-
-        //TODO
-//        InvAdjustmentValidator loValidator = new InvAdjustmentValidator();
-//        loValidator.setApplicationDriver(poGRider);
-//        loValidator.setTransactionStatus(status);
-//        loValidator.setMaster(Master());
-//        loValidator.setDetail(Detail(0));
-//        poJSON = loValidator.validate();
+        InvAdjustmentValidator loValidator = new InvAdjustmentValidator();
+        loValidator.setApplicationDriver(poGRider);
+        loValidator.setTransactionStatus(status);
+        loValidator.setMaster(Master());
+        poJSON = loValidator.validate();
         return poJSON;
     }
 
