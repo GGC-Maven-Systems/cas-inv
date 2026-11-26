@@ -450,65 +450,101 @@ public class InvAdjustment extends Transaction {
                 return poJSON;
             }
         }
-
+        
         //change status
         poGRider.beginTrans("UPDATE STATUS", "ConfirmTransaction", SOURCE_CODE, Master().getTransactionNo());
 
-        //Update Inventory On Hand
-        //Update the inventory for this Received Purchase
-        InventoryTransaction loTrans = new InventoryTransaction(poGRider);
-        loTrans.InventoryAdjustment((String)poMaster.getValue("sTransNox"), (Date)poMaster.getValue("dTransact"), false);
-        String lsCondition  = "0";
-        for (Model loDetail : paDetail) {
-            Model_Inv_Adjustment_Detail detail = (Model_Inv_Adjustment_Detail) loDetail;
-            //TODO
-            //Get the preowned value in Purchase Order Master
-//            switch((String)poMaster.getValue("cPurposex")){
-//                case PurchaseOrderReceivingStatus.Purpose.REGULAR:
-//                    lsCondition = detail.PurchaseOrderMaster().getPreOwned() ? "1" : "0";
-//                    break;
-//                case PurchaseOrderReceivingStatus.Purpose.REPLACEMENT:
-//                    lsCondition = detail.PurchaseOrderReturnDetail().PurchaseOrderMaster().getPreOwned() ? "1" : "0";
-//                    break;
-//            }
+        try {
+            //Update Inventory On Hand
+            //Update the inventory for this Received Purchase
+            InventoryTransaction loTrans = new InventoryTransaction(poGRider);
+            loTrans.InventoryAdjustment((String)poMaster.getValue("sTransNox"), (Date) poMaster.getValue("dTransact"), false);
+            String lsCondition  = "0";
+            for (Model loDetail : paDetail) {
+                Model_Inv_Adjustment_Detail detail = (Model_Inv_Adjustment_Detail) loDetail;
+                lsCondition  = getInvMasterCondition(detail); //get Condition from Inv_Master
 
-            if(detail.isSerialized()){
-                String lsStockIDx = detail.getStockId();
-                List<Model_Inv_Adjustment_Serial> laSerial =  paSerial.stream()
+                if(detail.isSerialized()){
+                    String lsStockIDx = detail.getStockId();
+                    List<Model_Inv_Adjustment_Serial> laSerial = paSerial.stream()
                         .filter(p -> {
                             try {
-                                return p.InventorySerial().getStockId().equalsIgnoreCase(lsStockIDx);
+                                if (p == null || p.InventorySerial() == null) {
+                                    return false;
+                                }
+                                String lsSerialStock = p.InventorySerial().getStockId();
+                                return lsSerialStock != null
+                                        && lsSerialStock.equalsIgnoreCase(lsStockIDx);
                             } catch (SQLException | GuanzonException e) {
                                 throw new RuntimeException(e);
                             }
                         })
-                        .collect(Collectors.toList()) ;
-                for(Model_Inv_Adjustment_Serial loSerial : laSerial) {
-                    loTrans.addSerial((String)poMaster.getValue("sIndstCdx"), loSerial.getSerialId(), false, detail.getInventoryCost(), loSerial.InventorySerial().getLocation());
+                        .collect(Collectors.toList());
+                    for(Model_Inv_Adjustment_Serial loSerial : laSerial) {
+                        loTrans.addSerial((String)poMaster.getValue("sIndstCdx"), loSerial.getSerialId(), false, detail.getInventoryCost(), loSerial.InventorySerial().getLocation());
+                    }
+                } else {
+                    if(detail.getCreditQuantity() > 0.00){
+                        loTrans.addDetail((String)poMaster.getValue("sIndstCdx"), detail.getStockId(), lsCondition, detail.getCreditQuantity(), 0, detail.getInventoryCost());
+                    } else {
+                        loTrans.addDetail((String)poMaster.getValue("sIndstCdx"), detail.getStockId(), lsCondition, detail.getDebitQuantity(), 0, detail.getInventoryCost());
+                    }
                 }
-            } else {
-                loTrans.addDetail((String)poMaster.getValue("sIndstCdx"), detail.getStockId(), lsCondition, detail.getDebitQuantity(), detail.getCreditQuantity(), detail.getInventoryCost());
             }
-        }
-        loTrans.saveTransaction();
+            loTrans.saveTransaction();
 
-        //Generate Journal
-        poJSON = generateJournal(lsStatus);
-        if (!isJSONSuccess(poJSON)) {
+            //Generate Journal
+            poJSON = generateJournal(lsStatus);
+            if (!isJSONSuccess(poJSON)) {
+                return poJSON;
+            }
+
+            //change status
+            poJSON = statusChange(poMaster.getTable(), (String) poMaster.getValue("sTransNox"), "", lsStatus, false, true);
+            if (!isJSONSuccess(poJSON)) {
+                return poJSON;
+            }
+
+            poGRider.commitTrans();
+
+        } catch (GuanzonException | SQLException | CloneNotSupportedException ex) {
+            Logger.getLogger(getClass().getName()).log(Level.SEVERE, MiscUtil.getException(ex), ex);
+            poGRider.rollbackTrans();
+            poJSON.put("result", "error");
+            poJSON.put("message", MiscUtil.getException(ex));
             return poJSON;
         }
-        
-        //change status
-        poJSON = statusChange(poMaster.getTable(), (String) poMaster.getValue("sTransNox"), "", lsStatus, false, true);
-        if (!isJSONSuccess(poJSON)) {
-            return poJSON;
-        }
-
-        poGRider.commitTrans();
 
         poJSON = new JSONObject();
         poJSON = setJSON("success", "Transaction confirmed successfully.");
         return poJSON;
+    }
+    
+    public String getInvMasterCondition(Model_Inv_Adjustment_Detail foObject){
+        poJSON = new JSONObject();
+        String lsReturnVal = "0"; //0 by default
+        try {
+            
+            String lsSQL = MiscUtil.addCondition(InvMaster_SQL(), //Search via Inv Master
+                                                " b.sCategCd1 = " + SQLUtil.toSQL(Master().getCategoryCode())
+                                                + " AND a.sBranchCd = " + SQLUtil.toSQL(Master().getBranchCode())
+                                                + " AND a.sStockIDx = " + SQLUtil.toSQL(foObject.getStockId())
+                                                );
+
+            System.out.println("Executing SQL: " + lsSQL);
+            ResultSet loRS = poGRider.executeQuery(lsSQL);
+                if (MiscUtil.RecordCount(loRS) > 0) {
+                    if(loRS.next()){
+                        lsReturnVal = loRS.getString("cConditnx");
+                    }
+                }
+            MiscUtil.close(loRS);
+        } catch (SQLException ex) {
+            Logger.getLogger(getClass().getName()).log(Level.SEVERE, MiscUtil.getException(ex), ex);
+            return lsReturnVal; 
+        }
+        
+        return lsReturnVal;
     }
 
     public JSONObject CancelTransaction() throws ParseException, SQLException, GuanzonException, CloneNotSupportedException, ScriptException {
@@ -549,57 +585,66 @@ public class InvAdjustment extends Transaction {
         //change status
         poGRider.beginTrans("UPDATE STATUS", "CancelTransaction", SOURCE_CODE, Master().getTransactionNo());
 
-        //Update Inventory On Hand
-        //Update the inventory for this Received Purchase
-        InventoryTransaction loTrans = new InventoryTransaction(poGRider);
-        loTrans.InventoryAdjustment((String)poMaster.getValue("sTransNox"), (Date)poMaster.getValue("dTransact"), true);
-        String lsCondition  = "0";
-        for (Model loDetail : paDetail) {
-            Model_Inv_Adjustment_Detail detail = (Model_Inv_Adjustment_Detail) loDetail;
-            //TODO
-            //Get the preowned value in Purchase Order Master
-//            switch((String)poMaster.getValue("cPurposex")){
-//                case PurchaseOrderReceivingStatus.Purpose.REGULAR:
-//                    lsCondition = detail.PurchaseOrderMaster().getPreOwned() ? "1" : "0";
-//                    break;
-//                case PurchaseOrderReceivingStatus.Purpose.REPLACEMENT:
-//                    lsCondition = detail.PurchaseOrderReturnDetail().PurchaseOrderMaster().getPreOwned() ? "1" : "0";
-//                    break;
-//            }
+        try {
+            //Update Inventory On Hand
+            //Update the inventory for this Received Purchase
+            InventoryTransaction loTrans = new InventoryTransaction(poGRider);
+            loTrans.InventoryAdjustment((String)poMaster.getValue("sTransNox"), (Date) poMaster.getValue("dTransact"), true);
+            String lsCondition  = "0";
+            for (Model loDetail : paDetail) {
+                Model_Inv_Adjustment_Detail detail = (Model_Inv_Adjustment_Detail) loDetail;
+                lsCondition  = getInvMasterCondition(detail); //get Condition from Inv_Master
 
-            if(detail.isSerialized()){
-                String lsStockIDx = detail.getStockId();
-                List<Model_Inv_Adjustment_Serial> laSerial =  paSerial.stream()
+                if(detail.isSerialized()){
+                    String lsStockIDx = detail.getStockId();
+                    List<Model_Inv_Adjustment_Serial> laSerial = paSerial.stream()
                         .filter(p -> {
                             try {
-                                return p.InventorySerial().getStockId().equalsIgnoreCase(lsStockIDx);
+                                if (p == null || p.InventorySerial() == null) {
+                                    return false;
+                                }
+                                String lsSerialStock = p.InventorySerial().getStockId();
+                                return lsSerialStock != null
+                                        && lsSerialStock.equalsIgnoreCase(lsStockIDx);
                             } catch (SQLException | GuanzonException e) {
                                 throw new RuntimeException(e);
                             }
                         })
-                        .collect(Collectors.toList()) ;
-                for(Model_Inv_Adjustment_Serial loSerial : laSerial) {
-                    loTrans.addSerial((String)poMaster.getValue("sIndstCdx"), loSerial.getSerialId(), false, detail.getInventoryCost(), loSerial.InventorySerial().getLocation());
+                        .collect(Collectors.toList());
+                    for(Model_Inv_Adjustment_Serial loSerial : laSerial) {
+                        loTrans.addSerial((String)poMaster.getValue("sIndstCdx"), loSerial.getSerialId(), false, detail.getInventoryCost(), loSerial.InventorySerial().getLocation());
+                    }
+                } else {
+                    if(detail.getCreditQuantity() > 0.00){
+                        loTrans.addDetail((String)poMaster.getValue("sIndstCdx"), detail.getStockId(), lsCondition, detail.getCreditQuantity(), 0, detail.getInventoryCost());
+                    } else {
+                        loTrans.addDetail((String)poMaster.getValue("sIndstCdx"), detail.getStockId(), lsCondition, detail.getDebitQuantity(), 0, detail.getInventoryCost());
+                    }
                 }
-            } else {
-                loTrans.addDetail((String)poMaster.getValue("sIndstCdx"), detail.getStockId(), lsCondition, detail.getDebitQuantity(), detail.getCreditQuantity(), detail.getInventoryCost());
             }
-        }
-        loTrans.saveTransaction();
+            loTrans.saveTransaction();
 
-        //Update Generated Journal
-        poJSON = generateJournal(lsStatus);
-        if (!isJSONSuccess(poJSON)) {
+            //Generate Journal
+            poJSON = generateJournal(lsStatus);
+            if (!isJSONSuccess(poJSON)) {
+                return poJSON;
+            }
+
+            //change status
+            poJSON = statusChange(poMaster.getTable(), (String) poMaster.getValue("sTransNox"), "", lsStatus, false, true);
+            if (!isJSONSuccess(poJSON)) {
+                return poJSON;
+            }
+
+            poGRider.commitTrans();
+
+        } catch (GuanzonException | SQLException | CloneNotSupportedException ex) {
+            Logger.getLogger(getClass().getName()).log(Level.SEVERE, MiscUtil.getException(ex), ex);
+            poGRider.rollbackTrans();
+            poJSON.put("result", "error");
+            poJSON.put("message", MiscUtil.getException(ex));
             return poJSON;
         }
-
-        //change status
-        poJSON = statusChange(poMaster.getTable(), (String) poMaster.getValue("sTransNox"), "", lsStatus, false, true);
-        if (!isJSONSuccess(poJSON)) {
-            return poJSON;
-        }
-
-        poGRider.commitTrans();
 
         poJSON = new JSONObject();
         poJSON = setJSON("success", "Transaction cancelled successfully.");
@@ -1403,6 +1448,7 @@ public class InvAdjustment extends Transaction {
                 ", b.sBarCodex " +
                 ", b.sDescript " +
                 ", a.nQtyOnHnd " +
+                ", a.cConditnx " +
                 ", c.sDescript AS sBrandNme " +
                 ", d.sDescript AS sModelNme " +
                 ", e.sDescript AS sColorNme " +
@@ -1429,6 +1475,8 @@ public class InvAdjustment extends Transaction {
                 if(!isJSONSuccess(poJSON)){
                     return poJSON;
                 }
+                
+                Date ldServerDate = poGRider.getServerDate();
                 
                 //Retrieve TBJ
                 //retreiving using column index
@@ -1465,7 +1513,7 @@ public class InvAdjustment extends Transaction {
                         System.out.println("Debit:" + xlist1.getDebit());
                         System.out.println("Credit:" + xlist1.getCredit());
                         lnRow = loJournal.getDetailCount()-1;
-                        loJournal.Detail(lnRow).setForMonthOf(poGRider.getServerDate());
+                        loJournal.Detail(lnRow).setForMonthOf(SQLUtil.toDate(xsDateShort(ldServerDate), SQLUtil.FORMAT_SHORT_DATE));
                         loJournal.Detail(lnRow).setAccountCode(xlist1.getAccount());
                         loJournal.Detail(lnRow).setCreditAmount(xlist1.getCredit());
                         loJournal.Detail(lnRow).setDebitAmount(xlist1.getDebit());
@@ -1481,7 +1529,7 @@ public class InvAdjustment extends Transaction {
                 loJournal.Master().setIndustryCode(Master().getIndustryCode());
                 loJournal.Master().setBranchCode(Master().getBranchCode());
                 loJournal.Master().setDepartmentId(poGRider.getDepartment());
-                loJournal.Master().setTransactionDate(poGRider.getServerDate()); 
+                loJournal.Master().setTransactionDate(SQLUtil.toDate(xsDateShort(ldServerDate), SQLUtil.FORMAT_SHORT_DATE)); 
                 loJournal.Master().setCompanyId(Master().getCompanyId());
                 loJournal.Master().setSourceCode(getSourceCode());
                 loJournal.Master().setSourceNo(Master().getTransactionNo());
