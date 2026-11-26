@@ -320,7 +320,7 @@ public class InvAdjustment extends Transaction {
     public int getSerialCount(int fnEntryNo) {
         return getSerials(fnEntryNo).size();
     }
-
+    
     public JSONObject NewTransaction()
             throws CloneNotSupportedException, SQLException, GuanzonException {
         poJSON = new JSONObject();
@@ -356,6 +356,7 @@ public class InvAdjustment extends Transaction {
             return poJSON;
         }
 
+        poJSON = setJSON("success", "success");
         return poJSON;
     }
 
@@ -874,23 +875,7 @@ public class InvAdjustment extends Transaction {
         
         Inventory object = new InvControllers(poGRider, logwrapr).Inventory();
         object.setRecordStatus(RecordStatus.ACTIVE);
-        String lsSQL =  " SELECT a.sBranchCd " +
-                        ", a.sStockIDx " +
-                        ", b.sBarCodex " +
-                        ", b.sDescript " +
-                        ", a.nQtyOnHnd " +
-                        ", c.sDescript AS sBrandNme " +
-                        ", d.sDescript AS sModelNme " +
-                        ", e.sDescript AS sColorNme " +
-                        ", f.sDescript AS sVrntName " +
-                        "FROM Inv_Master a " +
-                        "LEFT JOIN Inventory b ON b.sStockIDx = a.sStockIDx " +
-                        "LEFT JOIN Brand c ON c.sBrandIDx = b.sBrandIDx  " +
-                        "LEFT JOIN Model d ON d.sModelIDx = b.sModelIDx  " +
-                        "LEFT JOIN Color e ON e.sColorIDx = b.sColorIDx " +
-                        "LEFT JOIN Model_Variant f ON f.sVrntIDxx = b.sVrntIDxx ";
-        
-        lsSQL = MiscUtil.addCondition(lsSQL, //Search via Inv Master
+        String lsSQL = MiscUtil.addCondition(InvMaster_SQL(), //Search via Inv Master
                                             " b.sCategCd1 = " + SQLUtil.toSQL(Master().getCategoryCode())
                                             + " AND a.sBranchCd = " + SQLUtil.toSQL(Master().getBranchCode())
                                             );
@@ -939,26 +924,40 @@ public class InvAdjustment extends Transaction {
     
     public JSONObject validateCredit(Double fdblCreditAmt, int fnRow){
         poJSON = new JSONObject();
+        try {
+            Double ldblQtyOnHand = 0.00;
+            if(checkEmpty(Detail(fnRow).getStockId())){
+                poJSON = setJSON("error", "Stock Id cannot be empty.");
+                poJSON.put("row", fnRow);
+                return poJSON;
+            }
+
+            String lsSQL = MiscUtil.addCondition(InvMaster_SQL(), //Search via Inv Master
+                                                " b.sCategCd1 = " + SQLUtil.toSQL(Master().getCategoryCode())
+                                                + " AND a.sBranchCd = " + SQLUtil.toSQL(Master().getBranchCode())
+                                                + " AND a.sStockIDx = " + SQLUtil.toSQL(Detail(fnRow).getStockId())
+                                                );
+
+            System.out.println("Executing SQL: " + lsSQL);
+            ResultSet loRS = poGRider.executeQuery(lsSQL);
+                if (MiscUtil.RecordCount(loRS) > 0) {
+                    if(loRS.next()){
+                        ldblQtyOnHand = loRS.getDouble("nQtyOnHnd");
+                    }
+                }
+            MiscUtil.close(loRS);
+            if(fdblCreditAmt > ldblQtyOnHand){
+                poJSON = setJSON("error", "Credit cannot be greater than the quantity on hand.");
+                poJSON.put("row", fnRow);
+                return poJSON;
+            }
         
-        if(checkEmpty(Detail(fnRow).getStockId())){
-            poJSON = setJSON("error", "Stock Id cannot be empty.");
+        } catch (SQLException ex) {
+            Logger.getLogger(getClass().getName()).log(Level.SEVERE, MiscUtil.getException(ex), ex);
+            poJSON = setJSON("error", MiscUtil.getException(ex));
             poJSON.put("row", fnRow);
-            return poJSON;
+            return poJSON; 
         }
-        
-        Model_Inv_Master loObj = new InvModels(poGRider).InventoryMaster();
-        loObj.initialize();
-        poJSON = loObj.openRecord(Detail(fnRow).getStockId());
-        if(!isJSONSuccess(poJSON)){
-            return poJSON;
-        }
-        
-        if(fdblCreditAmt > loObj.getQuantityOnHand()){
-            poJSON = setJSON("error", "Credit cannot be greater thant the quantity on hand.");
-            poJSON.put("row", fnRow);
-            return poJSON;
-        }
-        
         poJSON = setJSON("success", "success");
         poJSON.put("row", fnRow);
         return poJSON;
@@ -972,10 +971,10 @@ public class InvAdjustment extends Transaction {
         
         if(Detail(lnDetailRow).getCreditQuantity() > 0.00){ //only serials currently assigned to a branch can be selected
             //Serial not assigned in the current branch
-            lsSQL = lsSQL + " a.sBranchCd = " + SQLUtil.toSQL(Master().getBranchCode());
+            lsSQL = lsSQL + " AND a.sBranchCd = " + SQLUtil.toSQL(Master().getBranchCode());
         } else { //only serials NOT currently assigned to the logged-in branch can be selected.
             //Serial assigned in the current branch
-            lsSQL = lsSQL + " a.sBranchCd != " + SQLUtil.toSQL(Master().getBranchCode());
+            lsSQL = lsSQL + " AND a.sBranchCd != " + SQLUtil.toSQL(Master().getBranchCode());
         }
         
         String lsHeader = "Serial 1»Serial 2»Description»Brand»Model»Variant»Color"; //»Plate No»CS No
@@ -1012,11 +1011,12 @@ public class InvAdjustment extends Transaction {
             System.out.println("Serial 2 : " + Serial(fnRow).InventorySerial().getSerial02());
             
         } else {
-            poJSON = new JSONObject();
-            poJSON.put("result", "error");
-            poJSON.put("message", "No record loaded.");
+            poJSON = setJSON("error", "No record loaded.");
+            poJSON.put("row", fnRow);
+            return poJSON;
         }
         
+        poJSON = setJSON("success", "success");
         poJSON.put("row", fnRow);
         return poJSON;
     }
@@ -1185,7 +1185,7 @@ public class InvAdjustment extends Transaction {
 
         //check inv adjustment serial
         for (int lnRow = 0; lnRow < getDetailCount(); lnRow++) {
-            if(Detail(lnRow).isSerialized() && !Detail(lnRow).isReverse()){
+            if(Detail(lnRow).isSerialized() && Detail(lnRow).isReverse()){
                 int lnEntryNo = Detail(lnRow).getEntryNo();
                 int lnCreditQty = (int) Math.round(Detail(lnRow).getCreditQuantity());
                 int lnDebitQty = (int) Math.round(Detail(lnRow).getDebitQuantity());
@@ -1387,6 +1387,7 @@ public class InvAdjustment extends Transaction {
                 ", d.sDescript AS sBrandNme " +
                 ", e.sDescript AS sModelNme " +
                 ", f.sDescript AS sVarntNme " +
+                ", g.sDescript AS sColorNme " +
                 "FROM Inv_Serial a " +
                 "LEFT JOIN Inv_Serial_Registration b ON b.sSerialID = a.sSerialID " +
                 "LEFT JOIN Inventory c ON c.sStockIDx = a.sStockIDx " +
@@ -1394,6 +1395,24 @@ public class InvAdjustment extends Transaction {
                 "LEFT JOIN Model e ON e.sModelIDx = c.sModelIDx " +
                 "LEFT JOIN Model_Variant f ON f.sVrntIDxx = c.sVrntIDxx " +
                 "LEFT JOIN Color g ON g.sColorIDx = c.sColorIDx ";
+    }
+    
+    private String InvMaster_SQL(){
+        return  " SELECT a.sBranchCd " +
+                ", a.sStockIDx " +
+                ", b.sBarCodex " +
+                ", b.sDescript " +
+                ", a.nQtyOnHnd " +
+                ", c.sDescript AS sBrandNme " +
+                ", d.sDescript AS sModelNme " +
+                ", e.sDescript AS sColorNme " +
+                ", f.sDescript AS sVrntName " +
+                "FROM Inv_Master a " +
+                "LEFT JOIN Inventory b ON b.sStockIDx = a.sStockIDx " +
+                "LEFT JOIN Brand c ON c.sBrandIDx = b.sBrandIDx  " +
+                "LEFT JOIN Model d ON d.sModelIDx = b.sModelIDx  " +
+                "LEFT JOIN Color e ON e.sColorIDx = b.sColorIDx " +
+                "LEFT JOIN Model_Variant f ON f.sVrntIDxx = b.sVrntIDxx ";
     }
     
     private JSONObject generateJournal(String fsStatus){
