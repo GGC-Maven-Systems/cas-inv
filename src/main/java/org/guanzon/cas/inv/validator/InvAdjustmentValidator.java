@@ -93,31 +93,31 @@ public class InvAdjustmentValidator implements GValidator{
     private JSONObject validateNew() throws SQLException{
         poJSON = new JSONObject();
         Date loTransactionDate = poMaster.getTransactionDate();
-        if (poMaster.getTransactionNo() == null || "".equals(poMaster.getTransactionNo())) {
+        if (checkEmpty(poMaster.getTransactionNo())) {
             poJSON.put("result", "error");
             poJSON.put("message", "Transaction no must not be empty.");
             return poJSON;
         } 
         
-        if (poMaster.getCompanyId() == null || "".equals(poMaster.getCompanyId())) {
+        if (checkEmpty(poMaster.getCompanyId())) {
             poJSON.put("result", "error");
             poJSON.put("message", "Company must not be empty.");
             return poJSON;
         } 
         
-        if (poMaster.getIndustryCode() == null || "".equals(poMaster.getIndustryCode())) {
+        if (checkEmpty(poMaster.getIndustryCode())) {
             poJSON.put("result", "error");
             poJSON.put("message", "Industry must not be empty.");
             return poJSON;
         } 
         
-        if (poMaster.getBranchCode() == null || "".equals(poMaster.getBranchCode())) {
+        if (checkEmpty(poMaster.getBranchCode())) {
             poJSON.put("result", "error");
             poJSON.put("message", "Branch must not be empty.");
             return poJSON;
         } 
         
-        if (poMaster.getCategoryCode() == null || "".equals(poMaster.getCategoryCode())) {
+        if (checkEmpty(poMaster.getCategoryCode())) {
             poJSON.put("result", "error");
             poJSON.put("message", "Category must not be empty.");
             return poJSON;
@@ -135,10 +135,35 @@ public class InvAdjustmentValidator implements GValidator{
             return poJSON;
         }
         
-        if (poMaster.getRemarks() == null || "".equals(poMaster.getRemarks())) {
+        if (checkEmpty(poMaster.getRemarks())) {
             poJSON.put("result", "error");
             poJSON.put("message", "Remarks is not set.");
             return poJSON;
+        }
+        
+        int lnRow = 0;
+        for(Model_Inv_Adjustment_Detail loDetail : paDetail){
+            if(loDetail.isReverse()){
+                lnRow++;
+            }
+            if(checkNotEmpty(loDetail.getStockId()) && loDetail.isReverse() ){
+                if(loDetail.getCreditQuantity() > 0
+                    && loDetail.getDebitQuantity() > 0){
+                    poJSON.put("result", "error");
+                    poJSON.put("message", "Credit and Debit quantities cannot both be specified "
+                                            + "at row : " + lnRow
+                                            + "./nPlease enter a value in only one of these fields.");
+                    return poJSON;
+                }
+                if(loDetail.getInventoryCost() <= 0.00){
+                    poJSON.put("result", "error");
+                    poJSON.put("message", "Invalid cost."
+                                            + "at row : " + lnRow
+                                            + ".");
+                    return poJSON;
+                }
+            }
+        
         }
         
         poJSON.put("result", "success");
@@ -183,5 +208,11 @@ public class InvAdjustmentValidator implements GValidator{
         return localDate;
     }
     
+    private boolean checkEmpty(String fsValue){
+        return fsValue == null || "".equals(fsValue);
+    }
+    private boolean checkNotEmpty(String fsValue){
+        return fsValue != null && !"".equals(fsValue);
+    }
     
 }

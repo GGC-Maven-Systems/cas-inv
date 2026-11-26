@@ -1195,6 +1195,12 @@ public class InvAdjustment extends Transaction {
         loValidator.setApplicationDriver(poGRider);
         loValidator.setTransactionStatus(status);
         loValidator.setMaster(Master());
+        
+        List<Model_Inv_Adjustment_Detail> laDetail = paDetail.stream()
+             .map(m -> (Model_Inv_Adjustment_Detail) m)
+             .collect(Collectors.toList());
+        loValidator.setInvDetails(laDetail);
+        loValidator.setInvSerials(paSerial);
         poJSON = loValidator.validate();
         return poJSON;
     }
