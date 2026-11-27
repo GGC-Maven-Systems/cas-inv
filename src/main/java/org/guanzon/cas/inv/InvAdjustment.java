@@ -2286,19 +2286,20 @@ public class InvAdjustment extends Transaction {
         try{
             int lnRow = 0;
             for(int lnCtr = 0;lnCtr < getTransactionListCount();lnCtr++){
+                InvAdjustment loObj = TransactionList(lnCtr);
                 lnRow++;       
                 addSummaryList(rows
                         , lnRow
-                        , getSafe(TransactionList(lnCtr).Master().getTransactionNo())
-                        , TransactionList(lnCtr).Master().getTransactionDate()
-                        , getSafe(TransactionList(lnCtr).Master().getReferenceNo())
-                        , getSafe(TransactionList(lnCtr).Master().Branch().getBranchName())
-                        , getSafe(TransactionList(lnCtr).Master().Company().getCompanyName())
-                        , getSafe(TransactionList(lnCtr).Master().Category().getDescription())
-                        , TransactionList(lnCtr).getTotalCreditQty()
-                        , TransactionList(lnCtr).getTotalDebitQty()
-                        , getStatus(TransactionList(lnCtr).Master().getTransactionStatus())
-                        , getSafe(TransactionList(lnCtr).Master().getRemarks())
+                        , getSafe(loObj.Master().getTransactionNo())
+                        , loObj.Master().getTransactionDate()
+                        , getSafe(loObj.Master().getReferenceNo())
+                        , getSafe(loObj.Master().Branch().getBranchName())
+                        , getSafe(loObj.Master().Company().getCompanyName())
+                        , getSafe(loObj.Master().Category().getDescription())
+                        , loObj.getTotalCreditQty()
+                        , loObj.getTotalDebitQty()
+                        , getStatus(loObj.Master().getTransactionStatus())
+                        , getSafe(loObj.Master().getRemarks())
                 );
             }
         } catch (SQLException | GuanzonException ex) {
@@ -2342,55 +2343,58 @@ public class InvAdjustment extends Transaction {
         try{
             int lnCount = 0;
             for(int lnCtr = 0;lnCtr < getTransactionListCount();lnCtr++){
+                InvAdjustment loObj = TransactionList(lnCtr);
+                
                 //List Transaction Details
-                for(int lnRow = 0;lnRow < TransactionList(lnRow).getDetailCount();lnRow++){
-                    if(!TransactionList(lnCtr).Detail(lnRow).isReverse()){
+                for(int lnRow = 0;lnRow < loObj.getDetailCount();lnRow++){
+                    Model_Inv_Adjustment_Detail loDetail = loObj.Detail(lnRow);
+                    if(!loDetail.isReverse()){
                         continue;
                     }
-                       
-                    if(TransactionList(lnCtr).Detail(lnRow).isSerialized()){
-                        
-                        List<Model_Inv_Adjustment_Serial> loSerial = getSerials(TransactionList(lnCtr).Detail(lnRow).getEntryNo(), false);
+                    
+                    //if Serialize load serials per detail
+                    if(loDetail.isSerialized()){
+                        List<Model_Inv_Adjustment_Serial> loSerial = loObj.getSerials(loDetail.getEntryNo(), false);
                         for(Model_Inv_Adjustment_Serial serial : loSerial){
                             lnCount++; 
                             addDetailList(rows
-                                    , lnRow
-                                    , getSafe(TransactionList(lnCtr).Master().getTransactionNo())
-                                    , TransactionList(lnCtr).Master().getTransactionDate()
-                                    , getSafe(TransactionList(lnCtr).Master().getReferenceNo())
-                                    , getSafe(TransactionList(lnCtr).Master().Branch().getBranchName())
-                                    , getSafe(TransactionList(lnCtr).Master().Company().getCompanyName())
-                                    , getSafe(TransactionList(lnCtr).Master().Category().getDescription())
-                                    , getSafe(TransactionList(lnCtr).Detail(lnRow).Inventory().Brand().getDescription())
-                                    , getSafe(TransactionList(lnCtr).Detail(lnRow).Inventory().Model().getDescription()) + " " + getSafe(TransactionList(lnCtr).Detail(lnRow).Inventory().Variant().getDescription())
-                                    , getSafe(TransactionList(lnCtr).Detail(lnRow).Inventory().Color().getDescription())
+                                    , lnCount
+                                    , getSafe(loObj.Master().getTransactionNo())
+                                    , loObj.Master().getTransactionDate()
+                                    , getSafe(loObj.Master().getReferenceNo())
+                                    , getSafe(loObj.Master().Branch().getBranchName())
+                                    , getSafe(loObj.Master().Company().getCompanyName())
+                                    , getSafe(loObj.Master().Category().getDescription())
+                                    , getSafe(loDetail.Inventory().Brand().getDescription())
+                                    , getSafe(loDetail.Inventory().Model().getDescription()) + " " + getSafe(loDetail.Inventory().Variant().getDescription())
+                                    , getSafe(loDetail.Inventory().Color().getDescription())
                                     , getSafe(serial.InventorySerial().getSerial01())
-                                    , getSafe(TransactionList(lnCtr).Detail(lnRow).Inventory().getDescription())
-                                    , TransactionList(lnCtr).Detail(lnRow).getCreditQuantity()
-                                    , TransactionList(lnCtr).Detail(lnRow).getDebitQuantity()
-                                    , getStatus(TransactionList(lnCtr).Master().getTransactionStatus())
-                                    , getSafe(TransactionList(lnCtr).Master().getRemarks())
+                                    , getSafe(loDetail.Inventory().getDescription())
+                                    , loDetail.getCreditQuantity()
+                                    , loDetail.getDebitQuantity()
+                                    , getStatus(loObj.Master().getTransactionStatus())
+                                    , getSafe(loObj.Master().getRemarks())
                             );
                         }
                     } else {
                         lnCount++; 
                         addDetailList(rows
-                                , lnRow
-                                , getSafe(TransactionList(lnCtr).Master().getTransactionNo())
-                                , TransactionList(lnCtr).Master().getTransactionDate()
-                                , getSafe(TransactionList(lnCtr).Master().getReferenceNo())
-                                , getSafe(TransactionList(lnCtr).Master().Branch().getBranchName())
-                                , getSafe(TransactionList(lnCtr).Master().Company().getCompanyName())
-                                , getSafe(TransactionList(lnCtr).Master().Category().getDescription())
-                                , getSafe(TransactionList(lnCtr).Detail(lnRow).Inventory().Brand().getDescription())
-                                , getSafe(TransactionList(lnCtr).Detail(lnRow).Inventory().Model().getDescription()) + " " + getSafe(TransactionList(lnCtr).Detail(lnRow).Inventory().Variant().getDescription())
-                                , getSafe(TransactionList(lnCtr).Detail(lnRow).Inventory().Color().getDescription())
-                                , getSafe(TransactionList(lnCtr).Detail(lnRow).Inventory().getBarCode())
-                                , getSafe(TransactionList(lnCtr).Detail(lnRow).Inventory().getDescription())
-                                , TransactionList(lnCtr).Detail(lnRow).getCreditQuantity()
-                                , TransactionList(lnCtr).Detail(lnRow).getDebitQuantity()
-                                , getStatus(TransactionList(lnCtr).Master().getTransactionStatus())
-                                , getSafe(TransactionList(lnCtr).Master().getRemarks())
+                                , lnCount
+                                , getSafe(loObj.Master().getTransactionNo())
+                                , loObj.Master().getTransactionDate()
+                                , getSafe(loObj.Master().getReferenceNo())
+                                , getSafe(loObj.Master().Branch().getBranchName())
+                                , getSafe(loObj.Master().Company().getCompanyName())
+                                , getSafe(loObj.Master().Category().getDescription())
+                                , getSafe(loDetail.Inventory().Brand().getDescription())
+                                , getSafe(loDetail.Inventory().Model().getDescription()) + " " + getSafe(loDetail.Inventory().Variant().getDescription())
+                                , getSafe(loDetail.Inventory().Color().getDescription()) 
+                                , getSafe(loDetail.Inventory().getBarCode())
+                                , getSafe(loDetail.Inventory().getDescription())
+                                , loDetail.getCreditQuantity()
+                                , loDetail.getDebitQuantity()
+                                , getStatus(loObj.Master().getTransactionStatus())
+                                , getSafe(loObj.Master().getRemarks())
                         );
                     }
                 }
