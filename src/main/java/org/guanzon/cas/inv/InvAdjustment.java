@@ -1716,6 +1716,18 @@ public class InvAdjustment extends Transaction {
                     return poJSON;
                 }
                 
+                poJSON = loJournal.OpenTransaction(loJournal.Master().getTransactionNo());
+                if(!isJSONSuccess(poJSON)){
+                    return poJSON;
+                }
+
+                loJournal.setWithParent(true);
+                loJournal.setWithUI(false);
+                poJSON = loJournal.ConfirmTransaction("ConfirmTransaction"); //Auto confirm journal
+                if(!isJSONSuccess(poJSON)){
+                    return poJSON;
+                }
+                
             } else {
                 //Cancel the generated Journal
                 String lsJournalTransNo = getJournalTransNo();
@@ -2341,7 +2353,9 @@ public class InvAdjustment extends Transaction {
                         , getSafe(loObj.Master().Category().getDescription())
                         , loObj.getTotalCreditQty()
                         , loObj.getTotalDebitQty()
-                        , getStatus(loObj.Master().getTransactionStatus())
+                        , loObj.getTotalCreditCost()
+                        , loObj.getTotalDebitCost()
+                        , getStatus(loObj.Master().getTransactionStatus()).toUpperCase()
                         , getSafe(loObj.Master().getRemarks())
                 );
             }
@@ -2362,6 +2376,8 @@ public class InvAdjustment extends Transaction {
                                 , String sCategory
                                 , Double nTotalCreditQty
                                 , Double nTotalDebitQty
+                                , Double nTotalCreditCost
+                                , Double nTotalDebitCost
                                 , String sStatus
                                 , String sRemarks
                         ) {
@@ -2375,6 +2391,8 @@ public class InvAdjustment extends Transaction {
         row.put("sCategory", sCategory);
         row.put("nTotalCreditQty", nTotalCreditQty);
         row.put("nTotalDebitQty", nTotalDebitQty);
+        row.put("nTotalCreditCost", nTotalCreditCost);
+        row.put("nTotalDebitCost", nTotalDebitCost);
         row.put("sStatus", sStatus);
         row.put("sRemarks", sRemarks);
         rows.add(row);
@@ -2385,14 +2403,21 @@ public class InvAdjustment extends Transaction {
 
         try{
             int lnCount = 0;
+            Double lnTotalCost = 0.00;
             for(int lnCtr = 0;lnCtr < getTransactionListCount();lnCtr++){
                 InvAdjustment loObj = TransactionList(lnCtr);
-                
+                lnTotalCost = 0.00;
                 //List Transaction Details
                 for(int lnRow = 0;lnRow < loObj.getDetailCount();lnRow++){
                     Model_Inv_Adjustment_Detail loDetail = loObj.Detail(lnRow);
                     if(!loDetail.isReverse()){
                         continue;
+                    }
+                    
+                    if(loDetail.getCreditQuantity() > 0.00){
+                        lnTotalCost = loDetail.getInventoryCost() * loDetail.getCreditQuantity();
+                    } else {
+                        lnTotalCost = loDetail.getInventoryCost() * loDetail.getDebitQuantity();
                     }
                     
                     //if Serialize load serials per detail
@@ -2413,9 +2438,11 @@ public class InvAdjustment extends Transaction {
                                     , getSafe(loDetail.Inventory().Color().getDescription())
                                     , getSafe(serial.InventorySerial().getSerial01())
                                     , getSafe(loDetail.Inventory().getDescription())
-                                    , loDetail.getCreditQuantity()
-                                    , loDetail.getDebitQuantity()
-                                    , getStatus(loObj.Master().getTransactionStatus())
+                                    , loDetail.getCreditQuantity() > 0 ? 1.00 : 0.00
+                                    , loDetail.getDebitQuantity() > 0 ? 1.00 : 0.00
+                                    , loDetail.getInventoryCost()
+                                    , loDetail.getInventoryCost() //1 qty by default
+                                    , getStatus(loObj.Master().getTransactionStatus()).toUpperCase()
                                     , getSafe(loObj.Master().getRemarks())
                             );
                         }
@@ -2436,7 +2463,9 @@ public class InvAdjustment extends Transaction {
                                 , getSafe(loDetail.Inventory().getDescription())
                                 , loDetail.getCreditQuantity()
                                 , loDetail.getDebitQuantity()
-                                , getStatus(loObj.Master().getTransactionStatus())
+                                , loDetail.getInventoryCost()
+                                , lnTotalCost
+                                , getStatus(loObj.Master().getTransactionStatus()).toUpperCase()
                                 , getSafe(loObj.Master().getRemarks())
                         );
                     }
@@ -2464,6 +2493,8 @@ public class InvAdjustment extends Transaction {
                                 , String sDescription
                                 , Double nCreditQty
                                 , Double nDebitQty
+                                , Double nCost
+                                , Double nTotalCost
                                 , String sStatus
                                 , String sRemarks
                         ) {
@@ -2482,6 +2513,8 @@ public class InvAdjustment extends Transaction {
         row.put("sDescription", sDescription);
         row.put("nCreditQty", nCreditQty);
         row.put("nDebitQty", nDebitQty);
+        row.put("nCost", nCost);
+        row.put("nTotalCost", nTotalCost);
         row.put("sStatus", sStatus);
         row.put("sRemarks", sRemarks);
         rows.add(row);
