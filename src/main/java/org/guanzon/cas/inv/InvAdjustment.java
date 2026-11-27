@@ -39,6 +39,7 @@ import java.nio.file.StandardCopyOption;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.text.SimpleDateFormat;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -126,6 +127,11 @@ public class InvAdjustment extends Transaction {
     }
     private boolean checkNotEmpty(String fsValue){
         return fsValue != null && !"".equals(fsValue);
+    }
+    
+    private String getSafe(Object foValue){
+        if(foValue == null){ return ""; }
+        return String.valueOf(foValue);
     }
 
     private static String xsDateShort(Date fdValue) {
@@ -385,10 +391,12 @@ public class InvAdjustment extends Transaction {
             return poJSON;
         }
 
-        //load attachment
-        poJSON = loadAttachments();
-        if (!isJSONSuccess(poJSON)) {
-            return poJSON;
+        if(!pbHistory){
+            //load attachment
+            poJSON = loadAttachments();
+            if (!isJSONSuccess(poJSON)) {
+                return poJSON;
+            }
         }
 
         poJSON = setJSON("success", "success");
@@ -476,6 +484,16 @@ public class InvAdjustment extends Transaction {
         poJSON = isEntryOkay(lsStatus);
         if (!isJSONSuccess(poJSON)) {
             return poJSON;
+        }
+        
+        //Validate credit qty vs on hand qty
+        for (int lnRow = 0; lnRow < getDetailCount(); lnRow++) {
+            if(Detail(lnRow).isReverse()){
+                poJSON = validateCredit(Detail(lnRow).getCreditQuantity(), lnRow);
+                if(!isJSONSuccess(poJSON)){
+                    return poJSON;
+                }
+            }
         }
 
         if(!pbWthParent){
@@ -755,11 +773,15 @@ public class InvAdjustment extends Transaction {
         }
         return paMaster.size();
     }
-
+    
+    boolean pbHistory = false;
+    public void setIsHistory(boolean fIsHistory){
+        pbHistory = fIsHistory;
+    }
+    
     public JSONObject loadTransactionList(String fsTranRefNo, String fsCategory, Date fDateFrom, Date fDateTo, String fsStatus) throws SQLException, GuanzonException, ScriptException, CloneNotSupportedException {
         poJSON = new JSONObject();
         paMaster = new ArrayList<>();
-        
         if(fDateFrom == null){
             return setJSON("error", "Invalid from date.");
         }
@@ -798,6 +820,7 @@ public class InvAdjustment extends Transaction {
         while (loRS.next()) {
             InvAdjustment loObject = new InvControllers(poGRider,null).InventoryAdjustment();
             loObject.InitTransaction();
+            loObject.setIsHistory(true);
             poJSON = loObject.OpenTransaction(loRS.getString("sTransNox"));
             if (isJSONSuccess(poJSON)) {
                 paMaster.add((InvAdjustment) loObject);
@@ -2027,270 +2050,122 @@ public class InvAdjustment extends Transaction {
         }
     }
 
-    public JSONObject printReport(boolean fbIsSummary)
+    public JSONObject printReport(boolean fbIsSummary, Date fdDateFrom, Date fdDateTo)
         throws CloneNotSupportedException, SQLException, GuanzonException {
 
         poJSON = new JSONObject();
         pbIsPrinted = false;
+        
+        if(fdDateFrom == null || fdDateTo == null){
+            ShowMessageFX.Warning(null, "Computerized Accounting System","Invalid date range.");
+            poJSON = setJSON("error", "Invalid date range.");
+            return poJSON;
+        }
 
-//        try {
-//
-//            String jrxmlPath = System.getProperty("sys.default.path.config");
-//            if(fbIsSummary){
-//                jrxmlPath = jrxmlPath + "/Reports/InventoryAdjustmentSummary.jrxml";
-//            } else {
-//                jrxmlPath = jrxmlPath + "/Reports/InventoryAdjustmentDetail.jrxml";
-//            }
-//
-//
-//            JasperReport jasperReport = JasperCompileManager.compileReport(jrxmlPath);
-//            String lsWatermarkPath = System.getProperty("sys.default.path.config") + "/Reports/images/";
-//            JasperPrint finalPrint = null;
-//
-//            // ---------------------------------------------
-//            // Parameters
-//            // ---------------------------------------------
-//            Map<String, Object> parameters = new HashMap<>();
-//            
-//            if(fbIsSummary){
-//            
-//            
-//            } else {
-//            
-//            }
-//            parameters.put("sCarImage", lsCarImage);
-//            parameters.put("watermarkImagePath", lsWatermarkPath);
-//            parameters.put("sValidity",Master().getTransactionNo()+ "-"+ poGRider.getServerDate());
-//            parameters.put("sCompany",Company().getCompanyName().toUpperCase());
-//            String lsAddress = Company().getCompanyAddress();
-//            if (Company().TownCity().getDescription() != null && !"".equals(Company().TownCity().getDescription())) {
-//                lsAddress = lsAddress + " " + Company().TownCity().getDescription();
-//            }
-//
-//            if (Company().TownCity().Province().getDescription() != null
-//                    && !"".equals(Company().TownCity().Province().getDescription())) {
-//                lsAddress = lsAddress+ ", "+ Company().TownCity().Province().getDescription();
-//            }
-//
-//            parameters.put("sAddress",lsAddress.toUpperCase());
-//
-//            Model_Branch loModel = Branch();
-//            String lsBranchName = loModel.getBranchName();
-//            String lsBranchDesc = loModel.getDescription();
-//            String lsBranchAddress = loModel.getAddress();
-//            String lsEmail = BranchEmail();
-//            if (loModel.TownCity().getDescription() != null && !"".equals(loModel.TownCity().getDescription())) {
-//                lsBranchAddress = lsBranchAddress + " " + loModel.TownCity().getDescription();
-//            }
-//
-//            if (loModel.TownCity().Province().getDescription() != null && !"".equals(loModel.TownCity().Province().getDescription())) {
-//                lsBranchAddress = lsBranchAddress+ ", "+ loModel.TownCity().Province().getDescription();
-//            }
-//            String lsContact = loModel.getMobile();
-//            String lsLandLine = loModel.getLandLine();
-//            if(lsBranchName == null) { lsBranchName = "";}
-//            if(lsBranchDesc == null) { lsBranchDesc = "";}
-//            if(lsBranchAddress == null) { lsBranchAddress = "";}
-//            if(lsContact == null) { 
-//                lsContact = "";
-//            } else {
-//                if(!lsContact.isEmpty()){
-//                    lsContact = "Mobile : " + lsContact;
-//                }
-//            }
-//            if(lsLandLine == null) {
-//                lsLandLine = "";
-//            } else {
-//                if(!lsLandLine.isEmpty()){
-//                    lsContact = lsContact 
-//                                + "\nTel No : " + lsLandLine;
-//                }
-//            }
-//            if(lsEmail == null) {
-//                lsEmail = "";
-//            } else {
-//                if(!lsEmail.isEmpty()){
-//                    lsContact = lsContact + "\nEmail Address : " + lsEmail;
-//                } 
-//            }
-//
-//            parameters.put("sBranch",lsBranchName.toUpperCase());
-//            parameters.put("sBrandBranch",lsBranchName.toUpperCase());
-//            parameters.put("sBranchAddress",lsBranchAddress.toUpperCase());
-//            parameters.put("sBranchDesc",lsBranchDesc.toUpperCase());
-//            parameters.put("sContact",lsContact);
-//            parameters.put("sCarModel",Detail(0).ModelVariant().Model().Brand().getDescription().toUpperCase() + " " + Detail(0).Model().getDescription().toUpperCase());
-//            parameters.put("sColorPreference", Detail(0).ModelVariant().Color().getDescription().toUpperCase());
-//            parameters.put("validFrom",SQLUtil.dateFormat(Master().getTransactionDate(),SQLUtil.FORMAT_LONG_DATE));
-//            String lsToDate = "";
-//            if(Detail(0).getValidThruDate() == null){
-//                lsToDate = "Present";
-//            } else {
-//                lsToDate = SQLUtil.dateFormat(Detail(0).getValidThruDate(),SQLUtil.FORMAT_LONG_DATE);
-//            }
-//            parameters.put("validTo",lsToDate);
-//            parameters.put("nCoverageYear", Detail(0).getInsuranceYears());
-//            parameters.put("sTransactionNo",Master().getTransactionNo());
-//            parameters.put("sCustomerName",Master().Client().getCompanyName());
-//            parameters.put("sAddress", getFullAddress());
-//            parameters.put("sCustomerContact", Master().ClientMobile().getMobileNo());
-//            parameters.put("sEmail", Master().ClientEmail().getMailAddress());
-//            parameters.put("sReceivingMethod", Detail(0).getReceivingMethod());
-//            parameters.put("sLHBankRate", Detail(0).getRateValue());
-//            parameters.put("sRemarks", Detail(0).getRemarks());
-//            parameters.put("dDeliverySchedule", Detail(0).getExpectedDate());
-//            parameters.put("sConsultantPhone", getContact(Detail(0).SalesInquiry().getSalesMan(), false, false));
-//            parameters.put("sConsultantEmail", getEmail(Detail(0).SalesInquiry().getSalesMan(), false, false));
-//            parameters.put("sPreparedBySignature", "");
-//            parameters.put("sPreparedBy", Detail(0).SalesInquiry().SalesPerson().getFullName().toUpperCase());
-//            parameters.put("sApprovedBySignature", "");
-//    //        poJSON = getUpdateStatusBy(Master().getTransactionStatus());
-//            poJSON = getSalesSupervisor();
-//            if(!isJSONSuccess(poJSON)){
-//                ShowMessageFX.Warning(
-//                       null,
-//                       "Computerized Accounting System",
-//                       (String) poJSON.get("message")
-//               );
-//                return poJSON;
-//            }
-//            parameters.put("sApprovedBy", ((String) poJSON.get("sUpdateByx")).toUpperCase() );
-//
-//            Double ldblTotalAccessories = getOtherAddOnTotal() + Detail(0).getCHMOAmount();
-//            Double ldblTotalAddOns = ldblTotalAccessories + Detail(0).getLTOAmount() + Detail(0).getTPLAmount() + Detail(0).getComprehensiveAmount();
-//            Double ldblTotalDiscount = getTotalDiscount();
-//
-//            parameters.put("nTotalDiscount",     ldblTotalDiscount);       // TODO
-//            parameters.put("bShowTotalDiscount", ldblTotalDiscount > 0.00);   // TODO
-//            parameters.put("nInclusionTotal",0.00);
-//            parameters.put("nVehiclePrice",Detail(0).getSRPAmount());
-//            parameters.put("nAddOnTotal",ldblTotalAddOns);
-//            parameters.put("nAccessories",ldblTotalAccessories);
-//            parameters.put("nInsurance",Detail(0).getComprehensiveAmount());
-//            parameters.put("nTPL",Detail(0).getTPLAmount());
-//            parameters.put("nLTO",Detail(0).getLTOAmount());
-//            parameters.put("nTotalPackagePrice",Detail(0).getTotalAmount());
-//
-//            //Initial value
-//            parameters.put("nCashDiscount", 0.00); 
-//            parameters.put("nPODiscount", 0.00); 
-//            parameters.put("nIHDiscount", 0.00);
-//            parameters.put("nCashUnitPrice",0.00);
-//            parameters.put("nCashInsurance",0.00);
-//            parameters.put("nCashTPL",0.00);
-//            parameters.put("nCashLTO",0.00);
-//            parameters.put("nCashTotal",0.00);
-//            parameters.put("nPOUnitPrice",0.00);
-//            parameters.put("nPOTPL",0.00);
-//            parameters.put("nPOLTO",0.00);
-//            parameters.put("nPOTotal",0.00);
-//            parameters.put("nIHUUnitPrice",0.00);
-//            parameters.put("nIHUDownpayment",0.00);
-//            parameters.put("nIHUMonthly",0.00);
-//            parameters.put("nIHBankRate",0.00);
-//            parameters.put("nIHYears",0.00);
-//            parameters.put("bShowInHouse",       false);
-//            parameters.put("bShowCash",          false);
-//            parameters.put("bShowPurchaseOrder", false);
-//
-//            switch(Detail(0).getPaymentForm()){
-//                case VehicleQuotationStatus.PaymentForm.FINANCING: //Financing 
-//                    parameters.put("bShowInHouse",       true);
-//                    parameters.put("sMOP","Financing");
-//                    parameters.put("nIHUnitPrice",Detail(0).getSRPAmount());
-//                    parameters.put("nIHDownpayment",Detail(0).getDownPayment());
-//                    parameters.put("nIHYears",Detail(0).getDuration() / 12);
-//                    parameters.put("nIHMonthly",Detail(0).getGrossMonthlyInstallment());
-//                    parameters.put("nIHBankRate",Detail(0).getRateValue());
-//                    parameters.put("nIHDiscount", ldblTotalDiscount);
-//                break;
-//                case VehicleQuotationStatus.PaymentForm.PO: //PO
-//                    parameters.put("bShowPurchaseOrder", true);
-//                    parameters.put("sMOP","PO");
-//                    parameters.put("nPOUnitPrice",Detail(0).getSRPAmount());
-//                    parameters.put("nPOTPL",Detail(0).getTPLAmount());
-//                    parameters.put("nPOLTO",Detail(0).getLTOAmount());
-//                    parameters.put("nPOTotal",Detail(0).getTotalAmount());
-//                    parameters.put("nPODiscount", ldblTotalDiscount); 
-//                break;
-//                default: //Cash
-//                    parameters.put("bShowCash",          true);
-//                    parameters.put("sMOP","Cash");
-//                    parameters.put("nCashUnitPrice",Detail(0).getSRPAmount());
-//                    parameters.put("nCashInsurance",Detail(0).getComprehensiveAmount()); //TODO
-//                    parameters.put("nCashTPL",Detail(0).getTPLAmount());
-//                    parameters.put("nCashLTO",Detail(0).getLTOAmount());
-//                    parameters.put("nCashTotal",Detail(0).getTotalAmount());
-//                    parameters.put("nCashDiscount", ldblTotalDiscount); 
-//                break;
-//
-//            }
-//
-//            // ---------------------------------------------
-//            // Build data
-//            // ---------------------------------------------
-//            List<Map<String, Object>> laVehicleInfo = buildQuotationVehicleInfo();
-//            List<Map<String, ?>> vehicleInfo = new ArrayList<>(laVehicleInfo);
-//            List<Map<String, Object>> lAddOnList = buildQuotationAddOns(false);
-//            List<Map<String, ?>> addons = new ArrayList<>(lAddOnList);
-//            List<Map<String, Object>> lFreebiesList = buildQuotationFreebies();
-//            List<Map<String, ?>> freebies = new ArrayList<>(lFreebiesList);
-//            List<Map<String, Object>> lLockInInsuranceList = buildQuotationLockInInsurance();
-//            List<Map<String, ?>> lockIn = new ArrayList<>(lLockInInsuranceList);
-//
-//            // --- hand the rows to the report ---
-//            parameters.put("VehicleDataSource",    new JRMapCollectionDataSource((Collection) vehicleInfo));
-//            parameters.put("AddOnDataSource",    new JRMapCollectionDataSource((Collection) addons));
-//            parameters.put("InclusionDataSource", new JRMapCollectionDataSource((Collection) freebies));
-//            parameters.put("LockInDataSource", new JRMapCollectionDataSource((Collection) lockIn));
+        try {
 
+            String jrxmlPath = System.getProperty("sys.default.path.config");
+            if(fbIsSummary){
+                jrxmlPath = jrxmlPath + "/Reports/InventoryAdjustmentSummary.jrxml";
+            } else {
+                jrxmlPath = jrxmlPath + "/Reports/InventoryAdjustmentDetail.jrxml";
+            }
+
+
+            JasperReport jasperReport = JasperCompileManager.compileReport(jrxmlPath);
+            String lsWatermarkPath = System.getProperty("sys.default.path.config") + "/Reports/images/";
+            JasperPrint finalPrint = null;
+
+            // ---------------------------------------------
+            // Parameters
+            // ---------------------------------------------
+            Map<String, Object> parameters = new HashMap<>();
+            
+            Master().setCompanyId(psCompanyId);
+            Master().setIndustryCode(psIndustryId);
+            parameters.put("sCompanyName", Master().Company().getCompanyName());
+            String lsAddress = Master().Company().getCompanyAddress();
+            if (Master().Company().TownCity().getDescription() != null && !"".equals(Master().Company().TownCity().getDescription())) {
+                lsAddress = lsAddress + " " + Master().Company().TownCity().getDescription();
+            }
+
+            if (Master().Company().TownCity().Province().getDescription() != null
+                    && !"".equals(Master().Company().TownCity().Province().getDescription())) {
+                lsAddress = lsAddress+ ", "+ Master().Company().TownCity().Province().getDescription();
+            }
+            parameters.put("sCompanyAddress", lsAddress.toUpperCase());
+            
+            DateTimeFormatter inputFormat = DateTimeFormatter.ofPattern("yyyy-MM-dd"); // adjust if needed
+            DateTimeFormatter outputFormat = DateTimeFormatter.ofPattern("MMMM d, yyyy");
+            LocalDate dateFrom = LocalDate.parse(xsDateShort(fdDateFrom), inputFormat);
+            LocalDate dateTo = LocalDate.parse(xsDateShort(fdDateTo), inputFormat);
+            String formattedFrom = dateFrom.format(outputFormat);
+            String formattedTo = dateTo.format(outputFormat);
+            
+            parameters.put("sDateRange",formattedFrom+ " - "+ formattedTo);
+            
+            // ---------------------------------------------
+            // Build data
+            // ---------------------------------------------
+            List<Map<String, Object>> laSummary = builSummaryList();
+            List<Map<String, ?>> summary = new ArrayList<>(laSummary);
+            List<Map<String, Object>> laDetail = buildDetailList();
+            List<Map<String, ?>> detail = new ArrayList<>(laDetail);
+
+            JRMapCollectionDataSource dataSource;
+            if(fbIsSummary){
+                dataSource = new JRMapCollectionDataSource(summary);
+            } else {
+                dataSource = new JRMapCollectionDataSource(detail);
+            }
+            
             // ---------------------------------------------
             // Generate JasperPrint
             // ---------------------------------------------
-//
-//            JasperPrint currentPrint =
-//                    JasperFillManager.fillReport(
-//                            jasperReport,
-//                            parameters,
-//                            new JREmptyDataSource(1)
-//                    );
+
+            JasperPrint currentPrint =
+                    JasperFillManager.fillReport(
+                            jasperReport,
+                            parameters,
+                            dataSource
+                    );
+            
+//             ---------------------------------------------
+//             Combine reports
+//             ---------------------------------------------
+
+            if (finalPrint == null) {
+                finalPrint = currentPrint;
+            } else {
+
+                finalPrint.getPages().addAll(
+                        currentPrint.getPages()
+                );
+            }
 
             // ---------------------------------------------
-            // Combine reports
+            // Display final report
             // ---------------------------------------------
 
-//            if (finalPrint == null) {
-//                finalPrint = currentPrint;
-//            } else {
-//
-//                finalPrint.getPages().addAll(
-//                        currentPrint.getPages()
-//                );
-//            }
-//
-//            // ---------------------------------------------
-//            // Display final report
-//            // ---------------------------------------------
-//
-//            if (finalPrint != null) {
-//                CustomJasperViewer viewer = new CustomJasperViewer(finalPrint);
-//                viewer.setVisible(true);
-//                viewer.addWindowListener(
-//                        new WindowAdapter() {
-//                            @Override
-//                            public void windowClosed(WindowEvent e) {
-//                                proceedAfterViewerClosed();
-//                            }
-//                        }
-//                );
-//            }
-//
-//        } catch (JRException | SQLException | GuanzonException ex) {
-//            poJSON.put("result", "error");
-//            poJSON.put("message","Transaction print aborted!");
-//            Logger.getLogger(getClass().getName())
-//                    .log(Level.SEVERE, MiscUtil.getException(ex), ex);
-//        }
+            if (finalPrint != null) {
+                CustomJasperViewer viewer = new CustomJasperViewer(finalPrint);
+                viewer.setVisible(true);
+                viewer.addWindowListener(
+                        new WindowAdapter() {
+                            @Override
+                            public void windowClosed(WindowEvent e) {
+                                proceedAfterViewerClosed();
+                            }
+                        }
+                );
+            }
+
+        } catch (JRException | SQLException | GuanzonException ex) {
+            poJSON.put("result", "error");
+            poJSON.put("message","Transaction print aborted!");
+            Logger.getLogger(getClass().getName())
+                    .log(Level.SEVERE, MiscUtil.getException(ex), ex);
+        }
 
         return poJSON;
     }
@@ -2405,273 +2280,165 @@ public class InvAdjustment extends Transaction {
         }
     }
     
-//    private List<Map<String, Object>> buildQuotationAddOns(boolean isInclusions) {
-//        List<Map<String, Object>> rows = new ArrayList<>();
-//
-//        try{
-//            boolean lbHasLTO = false;
-//            boolean lbHasTPL = false;
-//            boolean lbHasComprehensive = false;
-//            for(int lnCtr = 0;lnCtr < getAddOnListCount();lnCtr++){
-//                if(checkEmpty(AddOnList(lnCtr).getAddOnId())){
-//                    continue;
-//                }
-//                
-//                String lsType = "Add On";
-//                String lsDescription = AddOnList(lnCtr).AddOnMaster().AddOnType().getAddTypeName();
-//                
-//                if(lsDescription.toUpperCase().contains(VehicleQuotationStatus.AddOnType.LTO)){
-//                    lbHasLTO = true;
-//                } else if(lsDescription.toUpperCase().contains(VehicleQuotationStatus.AddOnType.TPL)){
-//                    lbHasTPL = true;
-//                } else if(lsDescription.toUpperCase().contains(VehicleQuotationStatus.AddOnType.COMPREHENSIVE)){
-//                    lbHasComprehensive = true;
-//                }
-//                
-//                if(AddOnList(lnCtr).getAmount() <= 0.00 || !AddOnList(lnCtr).getRecordStatus()){
-//                    continue;
-//                }
-//                addAddOnList(rows
-//                        , lsType
-//                        , lsDescription
-//                        , AddOnList(lnCtr).getAmount()
-//                        , AddOnList(lnCtr).getQuantity()
-//                        , AddOnList(lnCtr).getTotalAmount()
-//                );
-//            }
-//            
-//            for(int lnCtr = 0;lnCtr < getFreebiesListCount();lnCtr++){
-//                if(checkEmpty(FreebiesList(lnCtr).getFreebieId())
-//                    || FreebiesList(lnCtr).getAmount() <= 0.00
-//                    || !FreebiesList(lnCtr).getRecordStatus()    
-//                    ){
-//                    continue;
-//                }
-//                String lsType = "Accessory";
-//                String lsDescription = FreebiesList(lnCtr).Freebie().getDescription();
-//                addAddOnList(rows
-//                        , lsType
-//                        , lsDescription
-//                        , FreebiesList(lnCtr).getAmount()
-//                        , FreebiesList(lnCtr).getQuantity()
-//                        , FreebiesList(lnCtr).getTotalAmount()
-//                );
-//            }
-//            
-//            for(int lnCtr = 0;lnCtr < getInclusionListCount();lnCtr++){
-//                if(checkEmpty(InclusionList(lnCtr).getInclusionId())
-//                    || InclusionList(lnCtr).getAmount() <= 0.00
-//                    || !InclusionList(lnCtr).getRecordStatus()
-//                    ){
-//                    continue;
-//                }
-//                String lsType = "Accessory";
-//                String lsDescription = InclusionList(lnCtr).Inclusion().getDescription();
-//                addAddOnList(rows
-//                        , lsType
-//                        , lsDescription
-//                        , InclusionList(lnCtr).getAmount()
-//                        , InclusionList(lnCtr).getQuantity()
-//                        , InclusionList(lnCtr).getTotalAmount()
-//                );
-//            }
-//            
-//            for(int lnCtr = 0;lnCtr < getSpecialRequestListCount();lnCtr++){
-//                if(checkEmpty(SpecialRequestList(lnCtr).getRequestDescription())
-//                    || SpecialRequestList(lnCtr).getAmount()<= 0.00
-//                    || !SpecialRequestList(lnCtr).getRecordStatus()
-//                    ){
-//                    continue;
-//                }
-//                String lsType = "Accessory";
-//                String lsDescription = SpecialRequestList(lnCtr).getRequestDescription();
-//                addAddOnList(rows
-//                        , lsType
-//                        , lsDescription
-//                        , SpecialRequestList(lnCtr).getAmount()
-//                        , SpecialRequestList(lnCtr).getQuantity()
-//                        , SpecialRequestList(lnCtr).getTotalAmount()
-//                );
-//            }
-//            
-//            if(Detail(0).getLTOAmount() > 0.00){
-//                if(!lbHasLTO){
-//                    addAddOnList(rows
-//                               , "Add On"
-//                               , VehicleQuotationStatus.AddOnType.LTO
-//                               , Detail(0).getLTOAmount()
-//                               , 1
-//                               , Detail(0).getLTOAmount()
-//                    );
-//                }
-//            }
-//            
-//            if(Detail(0).getTPLAmount() > 0.00){
-//                if(!lbHasTPL){
-//                    addAddOnList(rows
-//                               , "Add On"
-//                               , VehicleQuotationStatus.AddOnType.TPL
-//                               , Detail(0).getTPLAmount()
-//                               , 1
-//                               , Detail(0).getTPLAmount()
-//                    );
-//                }
-//            }
-//            
-//            if(Detail(0).getComprehensiveAmount()> 0.00){
-//                if(!lbHasComprehensive){
-//                    addAddOnList(rows
-//                               , "Add On"
-//                               , VehicleQuotationStatus.AddOnType.COMPREHENSIVE
-//                               , Detail(0).getComprehensiveAmount()
-//                               , 1
-//                               , Detail(0).getComprehensiveAmount()
-//                    );
-//                }
-//            }
-//            
-//            if(Detail(0).getCHMOAmount()> 0.00){
-//                if(!lbHasComprehensive){
-//                    addAddOnList(rows
-//                               , "Add On"
-//                               , "CHMO"
-//                               , Detail(0).getCHMOAmount()
-//                               , 1
-//                               , Detail(0).getCHMOAmount()
-//                    );
-//                }
-//            }
-//            
-//        } catch (SQLException | GuanzonException ex) {
-//            Logger.getLogger(VehicleQuotation.class.getName()).log(Level.SEVERE, null, ex);
-//        }
-//        return rows;
-//    }
-// 
-//    // Keys here MUST match the <field name="..."> values in the .jrxml exactly.
-//    private void addAddOnList(List<Map<String, Object>> rows
-//                                , String type
-//                                , String description
-//                                , Double amount
-//                                , int quantity
-//                                , Double total
-//                        ) {
-//        Map<String, Object> row = new LinkedHashMap<>();
-//        if(type == null){ type = "";}
-//        if(description == null){ description = "";}
-//        row.put("sType", type);
-//        row.put("sDescription", description.toUpperCase());
-//        row.put("nAmount", amount);
-//        row.put("nQuantity", quantity);
-//        row.put("nTotal", total);
-//        rows.add(row);
-//    }
-//    
-//    private List<Map<String, Object>> buildQuotationVehicleInfo() {
-//        List<Map<String, Object>> rows = new ArrayList<>();
-//
-//        try{
-//             addVehicleInfo(rows
-//                        , Detail(0).ModelVariant().Model().Brand().getDescription() + " " + Detail(0).ModelVariant().Model().getDescription()
-//                        , Detail(0).ModelVariant().getDescription()
-//                        , Detail(0).ModelVariant().Color().getDescription()
-//                        , Detail(0).ModelVariant().VariantInsurance().getTransmission()
-//                        , ""
-//                        , Detail(0).ModelVariant().getYearModel()
-//                        , Detail(0).getSRPAmount()
-//                );
-//        } catch (SQLException | GuanzonException ex) {
-//            Logger.getLogger(VehicleQuotation.class.getName()).log(Level.SEVERE, null, ex);
-//        }
-//        return rows;
-//    }
-// 
-//    // Keys here MUST match the <field name="..."> values in the .jrxml exactly.
-//    private void addVehicleInfo(List<Map<String, Object>> rows
-//                                , String sModel
-//                                , String sVariant
-//                                , String sColor
-//                                , String sTransmission
-//                                , String sFuelType
-//                                , int nYear
-//                                , Double nPrice
-//                        ) {
-//        Map<String, Object> row = new LinkedHashMap<>();
-//        if(sModel == null){ sModel = "";}
-//        if(sVariant == null){ sVariant = "";}
-//        if(sTransmission == null){ sTransmission = "";}
-//        if(sFuelType == null){ sFuelType = "";}
-//        row.put("sModel", sModel.toUpperCase());
-//        row.put("sVariant", sVariant.toUpperCase());
-//        row.put("sColor", sColor.toUpperCase());
-//        row.put("sTransmission", sTransmission.toUpperCase());
-//        row.put("sFuelType", sFuelType.toUpperCase());
-//        row.put("nYear", nYear);
-//        row.put("nPrice", nPrice);
-//        rows.add(row);
-//    }
-//    
-//    private List<Map<String, Object>> buildQuotationFreebies() {
-//        List<Map<String, Object>> rows = new ArrayList<>();
-//
-//        try{
-//            for(int lnCtr = 0;lnCtr < getAddOnListCount();lnCtr++){
-//                if(checkEmpty(AddOnList(lnCtr).getAddOnId()) 
-//                    || AddOnList(lnCtr).getAmount() > 0.00
-//                    || !AddOnList(lnCtr).getRecordStatus()){
-//                    continue;
-//                }
-//                
-//                addQuotationFreebies(rows
-//                        , AddOnList(lnCtr).AddOnMaster().AddOnType().getAddTypeName()
-//                        , AddOnList(lnCtr).getQuantity()
-//                );
-//            }
-//            for(int lnCtr = 0;lnCtr < getFreebiesListCount();lnCtr++){
-//                if(checkEmpty(FreebiesList(lnCtr).getFreebieId()) 
-//                    || FreebiesList(lnCtr).getAmount() > 0.00
-//                    || !FreebiesList(lnCtr).getRecordStatus()){
-//                    continue;
-//                }
-//                
-//                addQuotationFreebies(rows
-//                        , FreebiesList(lnCtr).Freebie().getDescription()
-//                        , FreebiesList(lnCtr).getQuantity()
-//                );
-//            }
-//            for(int lnCtr = 0;lnCtr < getInclusionListCount();lnCtr++){
-//                if(checkEmpty(InclusionList(lnCtr).getInclusionId()) 
-//                    || InclusionList(lnCtr).getAmount() > 0.00
-//                    || !InclusionList(lnCtr).getRecordStatus()    
-//                    ){
-//                    continue;
-//                }
-//                
-//                addQuotationFreebies(rows
-//                        , InclusionList(lnCtr).Inclusion().getDescription()
-//                        , InclusionList(lnCtr).getQuantity()
-//                );
-//            }
-//            
-//            for(int lnCtr = 0;lnCtr < getSpecialRequestListCount();lnCtr++){
-//                if(checkEmpty(SpecialRequestList(lnCtr).getRequestDescription())
-//                    || SpecialRequestList(lnCtr).getAmount() > 0.00
-//                    || !SpecialRequestList(lnCtr).getRecordStatus()
-//                    ){
-//                    continue;
-//                }
-//                
-//                addQuotationFreebies(rows
-//                        , SpecialRequestList(lnCtr).getRequestDescription()
-//                        , SpecialRequestList(lnCtr).getQuantity()
-//                );
-//            }
-//            
-//        } catch (SQLException | GuanzonException ex) {
-//            Logger.getLogger(VehicleQuotation.class.getName()).log(Level.SEVERE, null, ex);
-//        }
-//        return rows;
-//    }
+    private List<Map<String, Object>> builSummaryList() {
+        List<Map<String, Object>> rows = new ArrayList<>();
+
+        try{
+            int lnRow = 0;
+            for(int lnCtr = 0;lnCtr < getTransactionListCount();lnCtr++){
+                lnRow++;       
+                addSummaryList(rows
+                        , lnRow
+                        , getSafe(TransactionList(lnCtr).Master().getTransactionNo())
+                        , TransactionList(lnCtr).Master().getTransactionDate()
+                        , getSafe(TransactionList(lnCtr).Master().getReferenceNo())
+                        , getSafe(TransactionList(lnCtr).Master().Branch().getBranchName())
+                        , getSafe(TransactionList(lnCtr).Master().Company().getCompanyName())
+                        , getSafe(TransactionList(lnCtr).Master().Category().getDescription())
+                        , TransactionList(lnCtr).getTotalCreditQty()
+                        , TransactionList(lnCtr).getTotalDebitQty()
+                        , getStatus(TransactionList(lnCtr).Master().getTransactionStatus())
+                        , getSafe(TransactionList(lnCtr).Master().getRemarks())
+                );
+            }
+        } catch (SQLException | GuanzonException ex) {
+            Logger.getLogger(getClass().getName()).log(Level.SEVERE, MiscUtil.getException(ex), ex);
+        }
+        return rows;
+    }
+ 
+    // Keys here MUST match the <field name="..."> values in the .jrxml exactly.
+    private void addSummaryList(List<Map<String, Object>> rows
+                                , int nRowNo
+                                , String sTransNo
+                                , Date dTransDate
+                                , String sRefNo
+                                , String sBranch
+                                , String sCompany
+                                , String sCategory
+                                , Double nTotalCreditQty
+                                , Double nTotalDebitQty
+                                , String sStatus
+                                , String sRemarks
+                        ) {
+        Map<String, Object> row = new LinkedHashMap<>();
+        row.put("nRowNo", nRowNo);
+        row.put("sTransNo", sTransNo);
+        row.put("dTransDate", dTransDate);
+        row.put("sRefNo", sRefNo);
+        row.put("sBranch", sBranch);
+        row.put("sCompany", sCompany);
+        row.put("sCategory", sCategory);
+        row.put("nTotalCreditQty", nTotalCreditQty);
+        row.put("nTotalDebitQty", nTotalDebitQty);
+        row.put("sStatus", sStatus);
+        row.put("sRemarks", sRemarks);
+        rows.add(row);
+    }
+    
+    private List<Map<String, Object>> buildDetailList() {
+        List<Map<String, Object>> rows = new ArrayList<>();
+
+        try{
+            int lnCount = 0;
+            for(int lnCtr = 0;lnCtr < getTransactionListCount();lnCtr++){
+                //List Transaction Details
+                for(int lnRow = 0;lnRow < TransactionList(lnRow).getDetailCount();lnRow++){
+                    if(!TransactionList(lnCtr).Detail(lnRow).isReverse()){
+                        continue;
+                    }
+                       
+                    if(TransactionList(lnCtr).Detail(lnRow).isSerialized()){
+                        
+                        List<Model_Inv_Adjustment_Serial> loSerial = getSerials(TransactionList(lnCtr).Detail(lnRow).getEntryNo(), false);
+                        for(Model_Inv_Adjustment_Serial serial : loSerial){
+                            lnCount++; 
+                            addDetailList(rows
+                                    , lnRow
+                                    , getSafe(TransactionList(lnCtr).Master().getTransactionNo())
+                                    , TransactionList(lnCtr).Master().getTransactionDate()
+                                    , getSafe(TransactionList(lnCtr).Master().getReferenceNo())
+                                    , getSafe(TransactionList(lnCtr).Master().Branch().getBranchName())
+                                    , getSafe(TransactionList(lnCtr).Master().Company().getCompanyName())
+                                    , getSafe(TransactionList(lnCtr).Master().Category().getDescription())
+                                    , getSafe(TransactionList(lnCtr).Detail(lnRow).Inventory().Brand().getDescription())
+                                    , getSafe(TransactionList(lnCtr).Detail(lnRow).Inventory().Model().getDescription()) + " " + getSafe(TransactionList(lnCtr).Detail(lnRow).Inventory().Variant().getDescription())
+                                    , getSafe(TransactionList(lnCtr).Detail(lnRow).Inventory().Color().getDescription())
+                                    , getSafe(serial.InventorySerial().getSerial01())
+                                    , getSafe(TransactionList(lnCtr).Detail(lnRow).Inventory().getDescription())
+                                    , TransactionList(lnCtr).Detail(lnRow).getCreditQuantity()
+                                    , TransactionList(lnCtr).Detail(lnRow).getDebitQuantity()
+                                    , getStatus(TransactionList(lnCtr).Master().getTransactionStatus())
+                                    , getSafe(TransactionList(lnCtr).Master().getRemarks())
+                            );
+                        }
+                    } else {
+                        lnCount++; 
+                        addDetailList(rows
+                                , lnRow
+                                , getSafe(TransactionList(lnCtr).Master().getTransactionNo())
+                                , TransactionList(lnCtr).Master().getTransactionDate()
+                                , getSafe(TransactionList(lnCtr).Master().getReferenceNo())
+                                , getSafe(TransactionList(lnCtr).Master().Branch().getBranchName())
+                                , getSafe(TransactionList(lnCtr).Master().Company().getCompanyName())
+                                , getSafe(TransactionList(lnCtr).Master().Category().getDescription())
+                                , getSafe(TransactionList(lnCtr).Detail(lnRow).Inventory().Brand().getDescription())
+                                , getSafe(TransactionList(lnCtr).Detail(lnRow).Inventory().Model().getDescription()) + " " + getSafe(TransactionList(lnCtr).Detail(lnRow).Inventory().Variant().getDescription())
+                                , getSafe(TransactionList(lnCtr).Detail(lnRow).Inventory().Color().getDescription())
+                                , getSafe(TransactionList(lnCtr).Detail(lnRow).Inventory().getBarCode())
+                                , getSafe(TransactionList(lnCtr).Detail(lnRow).Inventory().getDescription())
+                                , TransactionList(lnCtr).Detail(lnRow).getCreditQuantity()
+                                , TransactionList(lnCtr).Detail(lnRow).getDebitQuantity()
+                                , getStatus(TransactionList(lnCtr).Master().getTransactionStatus())
+                                , getSafe(TransactionList(lnCtr).Master().getRemarks())
+                        );
+                    }
+                }
+            }
+        } catch (SQLException | GuanzonException ex) {
+            Logger.getLogger(getClass().getName()).log(Level.SEVERE, MiscUtil.getException(ex), ex);
+        }
+        return rows;
+    }
+ 
+    // Keys here MUST match the <field name="..."> values in the .jrxml exactly.
+    private void addDetailList(List<Map<String, Object>> rows
+                                , int nRowNo
+                                , String sTransNo
+                                , Date dTransDate
+                                , String sRefNo
+                                , String sBranch
+                                , String sCompany
+                                , String sCategory
+                                , String sBrand
+                                , String sModel
+                                , String sColor
+                                , String sBarcode
+                                , String sDescription
+                                , Double nCreditQty
+                                , Double nDebitQty
+                                , String sStatus
+                                , String sRemarks
+                        ) {
+        Map<String, Object> row = new LinkedHashMap<>();
+        row.put("nRowNo", nRowNo);
+        row.put("sTransNo", sTransNo);
+        row.put("dTransDate", dTransDate);
+        row.put("sRefNo", sRefNo);
+        row.put("sBranch", sBranch);
+        row.put("sCompany", sCompany);
+        row.put("sCategory", sCategory);
+        row.put("sBrand", sBrand);
+        row.put("sModel", sModel);
+        row.put("sColor", sColor);
+        row.put("sBarcode", sBarcode);
+        row.put("sDescription", sDescription);
+        row.put("nCreditQty", nCreditQty);
+        row.put("nDebitQty", nDebitQty);
+        row.put("sStatus", sStatus);
+        row.put("sRemarks", sRemarks);
+        rows.add(row);
+    }
     
     public JSONObject getUpdateStatusBy(String fsStatus) throws SQLException, GuanzonException {
         String lsUpdateBy = "";
