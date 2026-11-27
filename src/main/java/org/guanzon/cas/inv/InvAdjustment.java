@@ -536,7 +536,7 @@ public class InvAdjustment extends Transaction {
                             .collect(Collectors.toList());
                         for(Model_Inv_Adjustment_Serial loSerial : laSerial) {
                             if(loSerial.isReverse()){ 
-                                loTrans.addSerial((String)poMaster.getValue("sIndstCdx"), loSerial.getSerialId(), false, detail.getInventoryCost(), loSerial.InventorySerial().getLocation());
+                                loTrans.addSerial((String)poMaster.getValue("sIndstCdx"), loSerial.getSerialId(), false, detail.getInventoryCost(), loSerial.InventorySerial().getWarehouseId());
                             }
                         }
                     } else {
@@ -673,7 +673,7 @@ public class InvAdjustment extends Transaction {
                             .collect(Collectors.toList());
                         for(Model_Inv_Adjustment_Serial loSerial : laSerial) {
                             if(loSerial.isReverse()){
-                                loTrans.addSerial((String)poMaster.getValue("sIndstCdx"), loSerial.getSerialId(), false, detail.getInventoryCost(), loSerial.InventorySerial().getLocation());
+                                loTrans.addSerial((String)poMaster.getValue("sIndstCdx"), loSerial.getSerialId(), false, detail.getInventoryCost(), loSerial.InventorySerial().getWarehouseId());
                             }
                         }
                     } else {
