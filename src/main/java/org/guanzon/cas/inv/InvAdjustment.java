@@ -60,6 +60,7 @@ import net.sf.jasperreports.swing.JRViewer;
 import net.sf.jasperreports.swing.JRViewerToolbar;
 import net.sf.jasperreports.view.JasperViewer;
 import org.guanzon.appdriver.agent.ShowMessageFX;
+import org.guanzon.appdriver.constant.Logical;
 import org.guanzon.cas.inv.services.InvControllers;
 import org.guanzon.cas.inv.status.InvAdjustmentStatus;
 import org.guanzon.cas.inv.validator.InvAdjustmentValidator;
@@ -527,15 +528,14 @@ public class InvAdjustment extends Transaction {
                                         return false;
                                     }
                                     String lsSerialStock = p.InventorySerial().getStockId();
-                                    return lsSerialStock != null
-                                            && lsSerialStock.equalsIgnoreCase(lsStockIDx);
+                                    return lsSerialStock != null && lsSerialStock.equalsIgnoreCase(lsStockIDx);
                                 } catch (SQLException | GuanzonException e) {
                                     throw new RuntimeException(e);
                                 }
                             })
                             .collect(Collectors.toList());
                         for(Model_Inv_Adjustment_Serial loSerial : laSerial) {
-                            if(loSerial.isReverse()){
+                            if(loSerial.isReverse()){ 
                                 loTrans.addSerial((String)poMaster.getValue("sIndstCdx"), loSerial.getSerialId(), false, detail.getInventoryCost(), loSerial.InventorySerial().getLocation());
                             }
                         }
@@ -1139,10 +1139,12 @@ public class InvAdjustment extends Transaction {
         
         if(Detail(lnDetailRow).getCreditQuantity() > 0.00){ //only serials currently assigned to a branch can be selected
             //Serial not assigned in the current branch
-            lsSQL = lsSQL + " AND a.sBranchCd = " + SQLUtil.toSQL(Master().getBranchCode());
+            lsSQL = lsSQL + " AND a.sBranchCd = " + SQLUtil.toSQL(Master().getBranchCode())
+                        + " AND a.cLocation = " + SQLUtil.toSQL(Logical.YES); //current location in the branch
         } else { //only serials NOT currently assigned to the logged-in branch can be selected.
             //Serial assigned in the current branch
-            lsSQL = lsSQL + " AND a.sBranchCd != " + SQLUtil.toSQL(Master().getBranchCode());
+            lsSQL = lsSQL + " AND a.sBranchCd != " + SQLUtil.toSQL(Master().getBranchCode())
+                        + " AND a.cLocation != " + SQLUtil.toSQL("3"); //not yet sold to customer
         }
         
         String lsHeader = "Serial 1»Serial 2»Description»Brand»Model»Variant»Color"; //»Plate No»CS No
@@ -1624,6 +1626,11 @@ public class InvAdjustment extends Transaction {
     private JSONObject generateJournal(String fsStatus){
         poJSON = new JSONObject();
         try {
+            
+            if(getTotalCreditCost() <= 0.00 && getTotalDebitCost() <= 0.00){
+                poJSON = setJSON("success", "success");//no journal to be created when total cost of debit / credit is 0.00
+                return poJSON;
+            }
             
             Journal loJournal = new CashflowControllers(poGRider, logwrapr).Journal();
             poJSON = loJournal.InitTransaction();
