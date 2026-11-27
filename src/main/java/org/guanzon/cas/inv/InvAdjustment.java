@@ -553,12 +553,14 @@ public class InvAdjustment extends Transaction {
             //Generate Journal
             poJSON = generateJournal(lsStatus);
             if (!isJSONSuccess(poJSON)) {
+                poGRider.rollbackTrans();
                 return poJSON;
             }
 
             //change status
             poJSON = statusChange(poMaster.getTable(), (String) poMaster.getValue("sTransNox"), "", lsStatus, false, true);
             if (!isJSONSuccess(poJSON)) {
+                poGRider.rollbackTrans();
                 return poJSON;
             }
 
@@ -688,12 +690,14 @@ public class InvAdjustment extends Transaction {
             //Generate Journal
             poJSON = generateJournal(lsStatus);
             if (!isJSONSuccess(poJSON)) {
+                poGRider.rollbackTrans();
                 return poJSON;
             }
 
             //change status
             poJSON = statusChange(poMaster.getTable(), (String) poMaster.getValue("sTransNox"), "", lsStatus, false, true);
             if (!isJSONSuccess(poJSON)) {
+                poGRider.rollbackTrans();
                 return poJSON;
             }
 
@@ -1049,9 +1053,33 @@ public class InvAdjustment extends Transaction {
         poJSON.put("row", row);
         return poJSON;
     }
-    
-    public JSONObject validateCredit(Double fdblCreditAmt, int fnRow){
+    public JSONObject validateDebit(Double fdblDebitQty, int fnRow){
         poJSON = new JSONObject();
+        
+        if(Detail(fnRow).isSerialized()){
+            if (fdblDebitQty != null && fdblDebitQty != Math.floor(fdblDebitQty)) {
+                poJSON.put("result", "error");
+                poJSON.put("message", "Debit quantity must be a whole number for serialize item.");
+                return poJSON;
+            }
+        }
+        
+        poJSON = setJSON("success", "success");
+        poJSON.put("row", fnRow);
+        return poJSON;
+    }
+    
+    public JSONObject validateCredit(Double fdblCreditQty, int fnRow){
+        poJSON = new JSONObject();
+        
+        if(Detail(fnRow).isSerialized()){
+            if (fdblCreditQty != null && fdblCreditQty != Math.floor(fdblCreditQty)) {
+                poJSON.put("result", "error");
+                poJSON.put("message", "Credit quantity must be a whole number for serialize item.");
+                return poJSON;
+            }
+        }
+        
         try {
             Double ldblQtyOnHand = 0.00;
             if(checkEmpty(Detail(fnRow).getStockId())){
@@ -1074,7 +1102,7 @@ public class InvAdjustment extends Transaction {
                     }
                 }
             MiscUtil.close(loRS);
-            if(fdblCreditAmt > ldblQtyOnHand){
+            if(fdblCreditQty > ldblQtyOnHand){
                 poJSON = setJSON("error", "Credit cannot be greater than the quantity on hand.");
                 poJSON.put("row", fnRow);
                 return poJSON;
@@ -1101,7 +1129,7 @@ public class InvAdjustment extends Transaction {
             ldblQty = Detail(lnDetailRow).getDebitQuantity() ;
         } 
         
-        if(getSerialCount(fnEntryNo) >= ldblQty){
+        if(getActiveSerialCount(fnEntryNo) >= ldblQty){
             poJSON = setJSON("error", "Serial list cannot be greater than the setted detail quantity.");
             poJSON.put("row", fnRow);
             return poJSON;
@@ -1666,6 +1694,21 @@ public class InvAdjustment extends Transaction {
                 loJournal.Master().setSourceCode(getSourceCode());
                 loJournal.Master().setSourceNo(Master().getTransactionNo());
                 
+                //Validate Journal Detail
+                boolean lbValDetail = false;
+                for(int lnCtr = 0; lnCtr < loJournal.getDetailCount(); lnCtr++){
+                    if(checkNotEmpty(loJournal.Detail(lnCtr).getAccountCode())){
+                        lbValDetail = true;
+                        break;
+                    }
+                }
+                
+                if(!lbValDetail){
+                    poJSON = setJSON("error", "No journal detail to be save."
+                                    + "\nCheck TBJ Entry for default journal detail value.");
+                    return poJSON;
+                }
+                
                 loJournal.setWithParent(true);
                 loJournal.setWithUI(false);
                 poJSON = loJournal.SaveTransaction();
@@ -1691,7 +1734,7 @@ public class InvAdjustment extends Transaction {
                 }
             }
             
-        } catch (SQLException | GuanzonException | ScriptException | CloneNotSupportedException | ParseException ex) {
+        } catch (SQLException | GuanzonException | ScriptException | CloneNotSupportedException | ParseException | NullPointerException ex) {
             Logger.getLogger(getClass().getName()).log(Level.SEVERE, MiscUtil.getException(ex), ex);
             return setJSON("error", MiscUtil.getException(ex));
         } 

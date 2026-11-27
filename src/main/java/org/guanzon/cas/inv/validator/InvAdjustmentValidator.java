@@ -141,6 +141,12 @@ public class InvAdjustmentValidator implements GValidator{
             return poJSON;
         }
         
+        if (poMaster.getRemarks().length() < 20) {
+            poJSON.put("result", "error");
+            poJSON.put("message", "Input valid remarks.");
+            return poJSON;
+        }
+        
         int lnRow = 0;
         for(Model_Inv_Adjustment_Detail loDetail : paDetail){
             if(loDetail.isReverse()){
