@@ -536,14 +536,17 @@ public class InvAdjustment extends Transaction {
                             .collect(Collectors.toList());
                         for(Model_Inv_Adjustment_Serial loSerial : laSerial) {
                             if(loSerial.isReverse()){ 
-                                loTrans.addSerial((String)poMaster.getValue("sIndstCdx"), loSerial.getSerialId(), false, detail.getInventoryCost(), loSerial.InventorySerial().getWarehouseId());
+                                //get the industry code of the category to prevent conflict in inv master / inventory table industry for general category as per ma'am she 11-28-2026 
+                                loTrans.addSerial(Master().Category().getIndustryCode(), loSerial.getSerialId(), false, detail.getInventoryCost(), loSerial.InventorySerial().getWarehouseId()); //(String)poMaster.getValue("sIndstCdx")
                             }
                         }
                     } else {
                         if(detail.getCreditQuantity() > 0.00){
-                            loTrans.addDetail((String)poMaster.getValue("sIndstCdx"), detail.getStockId(), lsCondition, detail.getCreditQuantity(), 0, detail.getInventoryCost());
+                            //get the industry code of the category to prevent conflict in inv master / inventory table industry for general category as per ma'am she 11-28-2026 
+                            loTrans.addDetail(Master().Category().getIndustryCode(), detail.getStockId(), lsCondition, detail.getCreditQuantity(), 0, detail.getInventoryCost()); //(String)poMaster.getValue("sIndstCdx")
                         } else {
-                            loTrans.addDetail((String)poMaster.getValue("sIndstCdx"), detail.getStockId(), lsCondition, detail.getDebitQuantity(), 0, detail.getInventoryCost());
+                            //get the industry code of the category to prevent conflict in inv master / inventory table industry for general category as per ma'am she 11-28-2026 
+                            loTrans.addDetail(Master().Category().getIndustryCode(), detail.getStockId(), lsCondition, detail.getDebitQuantity(), 0, detail.getInventoryCost()); //(String)poMaster.getValue("sIndstCdx")
                         }
                     }
                 }
@@ -664,23 +667,25 @@ public class InvAdjustment extends Transaction {
                                         return false;
                                     }
                                     String lsSerialStock = p.InventorySerial().getStockId();
-                                    return lsSerialStock != null
-                                            && lsSerialStock.equalsIgnoreCase(lsStockIDx);
+                                    return lsSerialStock != null && lsSerialStock.equalsIgnoreCase(lsStockIDx);
                                 } catch (SQLException | GuanzonException e) {
                                     throw new RuntimeException(e);
                                 }
                             })
                             .collect(Collectors.toList());
                         for(Model_Inv_Adjustment_Serial loSerial : laSerial) {
-                            if(loSerial.isReverse()){
-                                loTrans.addSerial((String)poMaster.getValue("sIndstCdx"), loSerial.getSerialId(), false, detail.getInventoryCost(), loSerial.InventorySerial().getWarehouseId());
+                            if(loSerial.isReverse()){ 
+                                //get the industry code of the category to prevent conflict in inv master / inventory table industry for general category as per ma'am she 11-28-2026 
+                                loTrans.addSerial(Master().Category().getIndustryCode(), loSerial.getSerialId(), false, detail.getInventoryCost(), loSerial.InventorySerial().getWarehouseId()); //(String)poMaster.getValue("sIndstCdx")
                             }
                         }
                     } else {
                         if(detail.getCreditQuantity() > 0.00){
-                            loTrans.addDetail((String)poMaster.getValue("sIndstCdx"), detail.getStockId(), lsCondition, detail.getCreditQuantity(), 0, detail.getInventoryCost());
+                            //get the industry code of the category to prevent conflict in inv master / inventory table industry for general category as per ma'am she 11-28-2026 
+                            loTrans.addDetail(Master().Category().getIndustryCode(), detail.getStockId(), lsCondition, detail.getCreditQuantity(), 0, detail.getInventoryCost()); //(String)poMaster.getValue("sIndstCdx")
                         } else {
-                            loTrans.addDetail((String)poMaster.getValue("sIndstCdx"), detail.getStockId(), lsCondition, detail.getDebitQuantity(), 0, detail.getInventoryCost());
+                            //get the industry code of the category to prevent conflict in inv master / inventory table industry for general category as per ma'am she 11-28-2026 
+                            loTrans.addDetail(Master().Category().getIndustryCode(), detail.getStockId(), lsCondition, detail.getDebitQuantity(), 0, detail.getInventoryCost()); //(String)poMaster.getValue("sIndstCdx")
                         }
                     }
                 }
