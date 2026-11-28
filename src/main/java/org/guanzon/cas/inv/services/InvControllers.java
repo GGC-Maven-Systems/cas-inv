@@ -4,6 +4,7 @@ import java.sql.SQLException;
 import org.guanzon.appdriver.base.GRiderCAS;
 import org.guanzon.appdriver.base.GuanzonException;
 import org.guanzon.appdriver.base.LogWrapper;
+import org.guanzon.cas.inv.InvAdjustment;
 import org.guanzon.cas.inv.InvMaster;
 import org.guanzon.cas.inv.InvSerial;
 import org.guanzon.cas.inv.Inventory;
@@ -72,7 +73,24 @@ public class InvControllers {
         return poInventorySerial;
     }
     
-    
+    public InvAdjustment InventoryAdjustment() {
+        if (poGRider == null) {
+            poLogWrapper.severe("InvControllers.InventoryAdjustment: Application driver is not set.");
+            return null;
+        }
+
+        if (poInvAdjustment != null) {
+            return poInvAdjustment;
+        }
+
+        poInvAdjustment = new InvAdjustment();
+        poInvAdjustment.setApplicationDriver(poGRider);
+        poInvAdjustment.setBranchCode(poGRider.getBranchCode());
+        poInvAdjustment.setWithParent(false);
+        poInvAdjustment.setLogWrapper(poLogWrapper);
+        return poInvAdjustment;
+    }
+
 
     public InventoryChildUnit InventoryChildUnit() throws SQLException, GuanzonException {
         if (poGRider == null) {
@@ -98,5 +116,6 @@ public class InvControllers {
     private Inventory poInventory;
     private InvMaster poInvMaster;
     private InvSerial poInventorySerial;
+    private InvAdjustment poInvAdjustment;
     private InventoryChildUnit poInvChildUnit;
 }

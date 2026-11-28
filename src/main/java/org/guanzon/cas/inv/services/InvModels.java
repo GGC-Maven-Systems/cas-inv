@@ -2,6 +2,9 @@ package org.guanzon.cas.inv.services;
 
 import org.guanzon.appdriver.base.GRiderCAS;
 import org.guanzon.cas.inv.model.Model_Classification_Config;
+import org.guanzon.cas.inv.model.Model_Inv_Adjustment_Detail;
+import org.guanzon.cas.inv.model.Model_Inv_Adjustment_Master;
+import org.guanzon.cas.inv.model.Model_Inv_Adjustment_Serial;
 import org.guanzon.cas.inv.model.Model_Inv_Ledger;
 import org.guanzon.cas.inv.model.Model_Inv_Master;
 import org.guanzon.cas.inv.model.Model_Inv_Serial;
@@ -185,6 +188,57 @@ public class InvModels {
         return this.poInvLedger;
     }
 
+    public Model_Inv_Adjustment_Master InventoryAdjustmentMaster() {
+        if (poGRider == null) {
+            System.err.println("InvModels.InventoryAdjustmentMaster: Application driver is not set.");
+            return null;
+        }
+
+        if (poInvAdjustmentMaster == null) {
+            poInvAdjustmentMaster = new Model_Inv_Adjustment_Master();
+            poInvAdjustmentMaster.setApplicationDriver(poGRider);
+            poInvAdjustmentMaster.setXML("Model_Inv_Adjustment_Master");
+            poInvAdjustmentMaster.setTableName("Inv_Adjustment_Master");
+            poInvAdjustmentMaster.initialize();
+        }
+
+        return poInvAdjustmentMaster;
+    }
+
+    public Model_Inv_Adjustment_Detail InventoryAdjustmentDetail() {
+        if (poGRider == null) {
+            System.err.println("InvModels.InventoryAdjustmentDetail: Application driver is not set.");
+            return null;
+        }
+
+        if (poInvAdjustmentDetail == null) {
+            poInvAdjustmentDetail = new Model_Inv_Adjustment_Detail();
+            poInvAdjustmentDetail.setApplicationDriver(poGRider);
+            poInvAdjustmentDetail.setXML("Model_Inv_Adjustment_Detail");
+            poInvAdjustmentDetail.setTableName("Inv_Adjustment_Detail");
+            poInvAdjustmentDetail.initialize();
+        }
+
+        return poInvAdjustmentDetail;
+    }
+
+    public Model_Inv_Adjustment_Serial InventoryAdjustmentSerial() {
+        if (poGRider == null) {
+            System.err.println("InvModels.InventoryAdjustmentSerial: Application driver is not set.");
+            return null;
+        }
+
+        if (poInvAdjustmentSerial == null) {
+            poInvAdjustmentSerial = new Model_Inv_Adjustment_Serial();
+            poInvAdjustmentSerial.setApplicationDriver(poGRider);
+            poInvAdjustmentSerial.setXML("Model_Inv_Adjustment_Serial");
+            poInvAdjustmentSerial.setTableName("Inv_Adjustment_Serial");
+            poInvAdjustmentSerial.initialize();
+        }
+
+        return poInvAdjustmentSerial;
+    }
+
     private final GRiderCAS poGRider;
 
     private Model_Inventory poInventory;
@@ -197,6 +251,9 @@ public class InvModels {
     private Model_Classification_Config poClassificationConfig;
     private Model_Inv_Ledger poInvLedger;
     private Model_Inventory_Child_Unit poInvChildUnit;
+    private Model_Inv_Adjustment_Master poInvAdjustmentMaster;
+    private Model_Inv_Adjustment_Detail poInvAdjustmentDetail;
+    private Model_Inv_Adjustment_Serial poInvAdjustmentSerial;
 
     public Model_Inventory_Child_Unit Inventory_Child_Unit() {
         if (poGRider == null) {
