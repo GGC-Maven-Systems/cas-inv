@@ -510,7 +510,6 @@ public class InvAdjustment extends Transaction {
 
         try {
             //Update Inventory On Hand
-            //Update the inventory for this Received Purchase
             InventoryTransaction loTrans = new InventoryTransaction(poGRider);
             loTrans.InventoryAdjustment((String)poMaster.getValue("sTransNox"), (Date) poMaster.getValue("dTransact"), false);
             String lsCondition  = "0";
@@ -537,16 +536,16 @@ public class InvAdjustment extends Transaction {
                         for(Model_Inv_Adjustment_Serial loSerial : laSerial) {
                             if(loSerial.isReverse()){ 
                                 //get the industry code of the category to prevent conflict in inv master / inventory table industry for general category as per ma'am she 11-28-2026 
-                                loTrans.addSerial(Master().Category().getIndustryCode(), loSerial.getSerialId(), false, detail.getInventoryCost(), loSerial.InventorySerial().getWarehouseId()); //(String)poMaster.getValue("sIndstCdx")
+                                loTrans.addSerial(Master().Category().getIndustryCode(), loSerial.getSerialId(), false, detail.getInventoryCost(), loSerial.InventorySerial().getWarehouseId());        //(String)poMaster.getValue("sIndstCdx")
                             }
                         }
                     } else {
                         if(detail.getCreditQuantity() > 0.00){
                             //get the industry code of the category to prevent conflict in inv master / inventory table industry for general category as per ma'am she 11-28-2026 
-                            loTrans.addDetail(Master().Category().getIndustryCode(), detail.getStockId(), lsCondition, detail.getCreditQuantity(), 0, detail.getInventoryCost()); //(String)poMaster.getValue("sIndstCdx")
+                            loTrans.addDetail(Master().Category().getIndustryCode(), detail.getStockId(), lsCondition, detail.getCreditQuantity(), 0, detail.getInventoryCost());                //(String)poMaster.getValue("sIndstCdx")
                         } else {
                             //get the industry code of the category to prevent conflict in inv master / inventory table industry for general category as per ma'am she 11-28-2026 
-                            loTrans.addDetail(Master().Category().getIndustryCode(), detail.getStockId(), lsCondition, detail.getDebitQuantity(), 0, detail.getInventoryCost()); //(String)poMaster.getValue("sIndstCdx")
+                            loTrans.addDetail(Master().Category().getIndustryCode(), detail.getStockId(), lsCondition, detail.getDebitQuantity(), 0, detail.getInventoryCost());                //(String)poMaster.getValue("sIndstCdx")
                         }
                     }
                 }
@@ -818,7 +817,7 @@ public class InvAdjustment extends Transaction {
             lsSQL = lsSQL + " AND a.cTranStat = " + SQLUtil.toSQL(fsStatus);
         }
 
-        lsSQL = lsSQL + " ORDER BY a.dTransact, a.sTransNox ASC ";
+        lsSQL = lsSQL + " ORDER BY a.dTransact DESC, a.sTransNox DESC ";
         System.out.println("Executing SQL: " + lsSQL);
         ResultSet loRS = poGRider.executeQuery(lsSQL);
         if (MiscUtil.RecordCount(loRS) <= 0) {
@@ -1149,7 +1148,8 @@ public class InvAdjustment extends Transaction {
         } else { //only serials NOT currently assigned to the logged-in branch can be selected.
             //Serial assigned in the current branch
             lsSQL = lsSQL + " AND a.sBranchCd != " + SQLUtil.toSQL(Master().getBranchCode())
-                        + " AND a.cLocation != " + SQLUtil.toSQL("3"); //not yet sold to customer
+//                        + " AND a.cLocation != " + SQLUtil.toSQL("3") //not yet sold to customer
+                        ; 
         }
         
         String lsHeader = "Serial 1»Serial 2»Description»Brand»Model»Variant»Color"; //»Plate No»CS No
